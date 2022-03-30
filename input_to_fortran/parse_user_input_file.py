@@ -1,12 +1,14 @@
 import numpy as np
 from itertools import islice  # Slicing when reading lines from Fortran files.
-
-from input_to_fortran.list_of_user_input_variables import get_list_of_user_input_vars
+from distutils.util import strtobool
+from input_to_fortran.list_of_user_input_variables import g_user_input_params_list, \
+    g_string_parameters, g_float_parameters, g_bool_parameters
 
 g_parsed_variables_dict = {}
 
 g_input_file_path = ""
 g_line_counter = 0
+
 
 def raise_error_if_parse_fail(line):
     global g_input_file_path
@@ -29,6 +31,9 @@ def debug_line_parse(line, key, value):
 
 
 def parse_string_to_key_value_pair(line):
+    global g_bool_parameters
+    global g_float_parameters
+    global g_string_parameters
     # This is the function that decides how
     key = ""
     value = ""
@@ -36,7 +41,7 @@ def parse_string_to_key_value_pair(line):
     key_str = key_val_split[0]
     val_str = key_val_split[-1]
 
-    if key_str == "" or val_str == "" or key_str not in get_list_of_user_input_vars():
+    if key_str == "" or val_str == "" or key_str not in g_user_input_params_list:
         raise_error_if_parse_fail(line)
 
     # Key is just the string of the variable name.
@@ -44,13 +49,20 @@ def parse_string_to_key_value_pair(line):
 
     # Value can be some different datatypes which we handle here.
     # Most will be integers.
-    if key_str == "nuclear_charge_Z":
+    if key_str in g_float_parameters:
         value = float(val_str)
     elif key_str == "highest_occupied_orbital":
         val_str = val_str.strip(")")
         val_str = val_str.strip("(")
         val_str = val_str.split(",")
         value = tuple(map(int, val_str))
+    elif key_str in g_bool_parameters:
+        try:
+            value = bool(strtobool(val_str))
+        except:
+            raise_error_if_parse_fail(line)
+    elif key_str in g_string_parameters:
+        value = val_str
     else:
         value = int(val_str)
 
@@ -63,7 +75,7 @@ def parse_user_input_file(file_path):
     global g_parsed_variables_dict
     g_input_file_path = file_path
 
-    print("Parsing user input file %s " % (file_path))
+    print("Parsing user input file %s \n" % (file_path))
 
     file = open(file_path, "r")
     for line in islice(file, 1, None):
@@ -92,7 +104,8 @@ def parse_user_input_file(file_path):
         #debug_line_parse(line, key, value)
 
     file.close()
-    for key, value in g_parsed_variables_dict.items():
-        print(key,": ", value)
+
+    for param in g_user_input_params_list:
+        print(param + " : ", g_parsed_variables_dict[param])
 
     return g_parsed_variables_dict
