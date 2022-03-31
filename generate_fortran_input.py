@@ -4,11 +4,13 @@
 # Typically the Fortran code expects to read the input files from a subfolder "generated_input/" in the same
 # folder as the Fortran executable is called from.
 # The file with user input is typically in the same folder as the executable is called from,
-# and is named "relcode_input_parameters.txt" - The variables in the .txt-files must correspond to those
+# and has to be named on the form "<your_name>.relcode_input".
+# The variables in the .relcode_input-files must correspond to those
+# defined in "list_of_user_input_variables.py".
 #
 ########################################################################################################################
 print("\n")
-print("===== START Python log output =====")
+print("===== START Relcode input generation =====")
 print("\n")
 # First we handle paths to make sure we can import the modules
 import sys
@@ -32,7 +34,11 @@ from input_to_fortran.create_files_for_fortran import create_atom_parameters_fil
     create_run_parameters_file,  create_file_io_parameters_file, \
     create_knotpoint_sequence_and_box_parameters_file, create_photon_sequence_and_parameters_file
 
-input_file_name = glob.glob(current_workdir_path+"/"+"*.relcode_input")[0] # glob gives us a list so we take the element
+globbed_filenames = glob.glob(current_workdir_path+"/"+"*.relcode_input")
+if len(globbed_filenames) > 1:
+    raise Exception("Too many *.relcode_input-files detected! We can only have one input file.")
+
+input_file_name = globbed_filenames[0]  # glob gives us a list so we take the element
 
 # Create directories for Fortran file if they don't exist.
 generated_input_path = current_workdir_path+"/generated_input"
@@ -48,13 +54,11 @@ if not os.path.exists(generated_input_path):
 #
 
 parsed_vars_dict = parse_user_input_file(input_file_name)
-print("\n")
 create_atom_parameters_file(parsed_vars_dict, generated_input_path)
 create_run_parameters_file(parsed_vars_dict, generated_input_path)
 create_file_io_parameters_file(parsed_vars_dict, current_workdir_path, generated_input_path)
 create_knotpoint_sequence_and_box_parameters_file(parsed_vars_dict, generated_input_path)
 create_photon_sequence_and_parameters_file(parsed_vars_dict, generated_input_path)
 
-print("\n")
-print("===== END Python log output =====")
+print("===== END Relcode input generation =====")
 print("\n")

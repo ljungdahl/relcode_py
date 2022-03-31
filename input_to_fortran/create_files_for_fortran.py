@@ -53,7 +53,7 @@ def write_integer_var_comment_and_value(file, var_str, value):
 
 def write_double_var_comment_and_value(file, var_str, value):
     comment_str = "# " + var_str
-    val_str = "%.1fd0" % value
+    val_str = "%.5fd0" % value
     write_string_to_file(file, comment_str)
     write_string_to_file(file, val_str)
     return
@@ -103,7 +103,7 @@ def create_atom_parameters_file(parsed_vars_dict, generated_input_path):
 
     file.close()
 
-    print("Wrote to %s" % filename)
+    #print("Wrote to %s" % filename)
     return
 
 
@@ -138,7 +138,7 @@ def create_run_parameters_file(parsed_vars_dict, generated_input_path):
         print("\nWARNING! run_diagonalise_CIS set to true will skip one- and two-photon calculations.\n")
 
     file.close()
-    print("Wrote to %s" % filename)
+    #print("Wrote to %s" % filename)
     return
 
 
@@ -158,7 +158,7 @@ def create_file_io_parameters_file(parsed_vars_dict, current_workdir, generated_
         write_string_to_file(file, val_str)
 
     file.close()
-    print("Wrote to %s" % filename)
+    #print("Wrote to %s" % filename)
     return
 
 
@@ -171,15 +171,16 @@ def create_knotpoint_sequence_and_box_parameters_file(parsed_vars_dict, generate
     print("\n")
     knotsequence_filename = generated_input_path + "/" + "knotpoint_sequence.dat"
     np.savetxt(knotsequence_filename, knotsequence, delimiter="    ", fmt='%1.13e')
-    print("Wrote to %s" % knotsequence_filename)
+    #print("Wrote to %s" % knotsequence_filename)
 
     file_params_filename = generated_input_path + "/" + "box_parameters.input"
     file_params = open(file_params_filename, "w")
     write_box_parameters_to_file(file_params, parsed_vars_dict, start_imag_coord)
     file_params.close()
-    print("Wrote to %s" % file_params_filename)
+    #print("Wrote to %s" % file_params_filename)
 
     return
+
 
 ##################################################################################################
 #
@@ -225,6 +226,24 @@ def create_photon_sequence_and_parameters_file(parsed_vars_dict, generated_input
     for i in range(total_photon_points):
         photon_range_au[i] = start_energy_au + i*delta_omega
         #print("%1.13e" % photon_range_au[i])
+
+    photon_range_filename = generated_input_path + "/" + "photon_range.dat"
+    np.savetxt(photon_range_filename, photon_range_au, fmt='%1.13e')
+    #print("Wrote to %s" % photon_range_filename)
+
+
+    photon_params_filename = generated_input_path + "/" + "photon_parameters.input"
+    file = open(photon_params_filename, "w")
+
+    num_photons = len(photon_range_au)
+    write_integer_var_comment_and_value(file, "number of photons", num_photons)
+    write_integer_var_comment_and_value(file, "fraction of omega_IR for step size", fraction)
+    write_double_var_comment_and_value(file, "second_photon_energy (eV)", omega_IR_eV)
+
+    file.close()
+    #print("Wrote to %s" % photon_params_filename)
+
+
 
 
 
