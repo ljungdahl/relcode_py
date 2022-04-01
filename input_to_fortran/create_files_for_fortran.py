@@ -1,3 +1,4 @@
+import os
 import numpy as np
 from input_to_fortran.list_of_user_input_variables import g_user_input_params_list, \
     g_bool_parameters, g_string_parameters
@@ -58,6 +59,21 @@ def write_double_var_comment_and_value(file, var_str, value):
     write_string_to_file(file, val_str)
     return
 
+def create_folder_if_it_doesnt_exist(path):
+    if not os.path.exists(path):
+        try:
+            os.mkdir(path)
+            print("Created directory ", path)
+        except OSError as error:
+            print(error)
+
+def is_folder_empty(path):
+    empty = False
+    if os.path.isdir(path):
+        if not os.listdir(path):
+            empty = True
+
+    return empty
 
 ##################################################################################################
 #
@@ -148,16 +164,43 @@ def create_run_parameters_file(parsed_vars_dict, generated_input_path):
 def create_file_io_parameters_file(parsed_vars_dict, current_workdir, generated_input_path):
     filename = generated_input_path + "/" + "file_io_parameters.input"
 
+    default_dir_path = current_workdir + "/output"
+    # Create folders if necessary
+    write_path = parsed_vars_dict["path_to_output_folder"]
+    if write_path != "default":
+        create_folder_if_it_doesnt_exist(write_path)
+    else:
+        create_folder_if_it_doesnt_exist(default_dir_path)
+
+    read_path = parsed_vars_dict["path_to_previous_output"]
+
+    if len(read_path) > 1:
+        if read_path == "default":
+            read_path = default_dir_path
+
+        create_folder_if_it_doesnt_exist(read_path)
+        # If the folder is empty and we still try to read from it, things will break.
+        # So if the folder is given by user but nothing is in it, we will force this option to zero
+        # and give a warning.
+        if is_folder_empty(read_path):
+            print("WARNING! Empty read folder supplied. Ignoring reading from previous calculation this run.")
+            parsed_vars_dict["path_to_previous_output"] = "0"
+
     file = open(filename, "w")
     for param in g_string_parameters:
         val_str = parsed_vars_dict[param]
         if val_str == "default":
-            val_str = current_workdir + "/output/"
+            val_str = default_dir_path
+            create_folder_if_it_doesnt_exist(default_dir_path)
+
         comment_str = "# %s" % param
         write_string_to_file(file, comment_str)
         write_string_to_file(file, val_str)
 
     file.close()
+
+
+
     #print("Wrote to %s" % filename)
     return
 
@@ -242,6 +285,14 @@ def create_photon_sequence_and_parameters_file(parsed_vars_dict, generated_input
 
     file.close()
     #print("Wrote to %s" % photon_params_filename)
+
+def create_generation_complete_file_for_fortran_validation(generated_input_path):
+    filename = generated_input_path + "/" + "generation_complete.input"
+
+    file = open(filename, "w")
+    write_string_to_file(file, "# generation complete - fortran checks if this file exists")
+
+    return
 
 
 

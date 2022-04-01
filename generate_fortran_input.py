@@ -32,7 +32,8 @@ sys.path.append(relcode_py_path)
 from input_to_fortran.parse_user_input_file import parse_user_input_file
 from input_to_fortran.create_files_for_fortran import create_atom_parameters_file,\
     create_run_parameters_file,  create_file_io_parameters_file, \
-    create_knotpoint_sequence_and_box_parameters_file, create_photon_sequence_and_parameters_file
+    create_knotpoint_sequence_and_box_parameters_file, create_photon_sequence_and_parameters_file, \
+    create_generation_complete_file_for_fortran_validation
 
 globbed_filenames = glob.glob(current_workdir_path+"/"+"*.relcode_input")
 if len(globbed_filenames) > 1:
@@ -59,6 +60,7 @@ create_run_parameters_file(parsed_vars_dict, generated_input_path)
 create_file_io_parameters_file(parsed_vars_dict, current_workdir_path, generated_input_path)
 create_knotpoint_sequence_and_box_parameters_file(parsed_vars_dict, generated_input_path)
 create_photon_sequence_and_parameters_file(parsed_vars_dict, generated_input_path)
+create_generation_complete_file_for_fortran_validation(generated_input_path)
 
 print("===== END Relcode input generation =====")
 print("\n")
