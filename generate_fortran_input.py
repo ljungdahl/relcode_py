@@ -33,7 +33,7 @@ from input_to_fortran.parse_user_input_file import parse_user_input_file
 from input_to_fortran.create_files_for_fortran import create_atom_parameters_file,\
     create_run_parameters_file,  create_file_io_parameters_file, \
     create_knotpoint_sequence_and_box_parameters_file, create_photon_sequence_and_parameters_file, \
-    create_generation_complete_file_for_fortran_validation
+    create_generation_complete_file_for_fortran_validation, remove_previous_generation_complete_file
 
 globbed_filenames = glob.glob(current_workdir_path+"/"+"*.relcode_input")
 if len(globbed_filenames) > 1:
@@ -54,6 +54,7 @@ if not os.path.exists(generated_input_path):
 # Main part of program, parsing user input text file and generating files to be read by Fortran code.
 #
 
+remove_previous_generation_complete_file(generated_input_path)
 parsed_vars_dict = parse_user_input_file(input_file_name)
 create_atom_parameters_file(parsed_vars_dict, generated_input_path)
 create_run_parameters_file(parsed_vars_dict, generated_input_path)

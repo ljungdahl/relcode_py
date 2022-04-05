@@ -186,6 +186,16 @@ def create_file_io_parameters_file(parsed_vars_dict, current_workdir, generated_
             print("WARNING! Empty read folder supplied. Ignoring reading from previous calculation this run.")
             parsed_vars_dict["path_to_previous_output"] = "0"
 
+    # Check that exp en file actually exists if it's supposed to be used.
+    exp_en_file = parsed_vars_dict["path_to_experimental_energies"]
+    if exp_en_file != "0":
+        file_exists = os.path.exists(exp_en_file)
+        if not file_exists:
+            print("FATAL ERROR: Experimental energies file %s doesn't exist." % exp_en_file)
+            raise Exception("Invalid experimental energies file.")
+
+
+
     file = open(filename, "w")
     for param in g_string_parameters:
         val_str = parsed_vars_dict[param]
@@ -286,6 +296,12 @@ def create_photon_sequence_and_parameters_file(parsed_vars_dict, generated_input
     file.close()
     #print("Wrote to %s" % photon_params_filename)
 
+    print("\n")
+    print("For first photon interval between %.3f eV and %.3f eV, and a step size of omega_IR/%i,"
+          " we have %i points." % (start_omega_eV, end_omega_eV, fraction, num_photons))
+    print("omega_IR = %.3f" % omega_IR_eV)
+    print("\n")
+
 def create_generation_complete_file_for_fortran_validation(generated_input_path):
     filename = generated_input_path + "/" + "generation_complete.input"
 
@@ -295,6 +311,13 @@ def create_generation_complete_file_for_fortran_validation(generated_input_path)
     return
 
 
+def remove_previous_generation_complete_file(generated_input_path):
+    filename = generated_input_path + "/" + "generation_complete.input"
+    file_exists = os.path.exists(filename)
+    if(file_exists):
+        os.remove(filename)
+
+    return
 
 
 

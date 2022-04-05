@@ -90,8 +90,9 @@ def parse_user_input_file(file_path):
         # remove whitespace
         line = line.replace(" ", "")
 
-        # Split by comments by just taking the first element in the split string
-        line = line.split("#")[0]
+        if line.find("#") != -1:
+            # Split by comments by just taking the first element in the split string
+            line = line.split("#")[0]
 
         # If we now have a zero length string this line was a comment only line, and we skip.
         if(len(line) == 0):

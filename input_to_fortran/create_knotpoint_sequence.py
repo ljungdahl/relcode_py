@@ -76,7 +76,7 @@ def get_knotpoint_sequence_from_params(params_dict):
     # To make our life easy we start at the second nonzero point and distribute to the end point.
     knots[start_exp_points_index - 1:end_exp_points_index] = \
         np.logspace(np.log10(second_non_zero_point), np.log10(end_point_of_start_exp_region),
-                    remaining_start_exp_points + 1)
+                    remaining_start_exp_points + 1, endpoint=True)
 
     start_exp_range = knots[start_exp_points_index - 1:end_exp_points_index]
     start_exp_range_plus1 = len(knots[start_exp_points_index - 1:end_exp_points_index]) + 1

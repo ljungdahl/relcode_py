@@ -11,6 +11,7 @@ g_user_input_params_list = [
     "run_forward_only",
     "run_two_photons",
     "run_diagonalise_CIS",
+    "write_diag_eigenvectors",
     "path_to_output_folder",
     "path_to_previous_output",
     "path_to_experimental_energies",
@@ -34,7 +35,8 @@ g_user_input_params_list = [
 g_bool_parameters = ["run_one_photon",
                      "run_forward_only",
                      "run_two_photons",
-                     "run_diagonalise_CIS"
+                     "run_diagonalise_CIS",
+                     "write_diag_eigenvectors"
                      ]
 
 g_float_parameters = ["nuclear_charge_Z",
