@@ -4,7 +4,7 @@
 # Then they also need to be handled in the proper way after parsing, of course.
 g_user_input_params_list = [
     "nuclear_charge_Z",
-    "highest_occupied_orbital",
+    #"highest_occupied_orbital", # Use explicit map instead
     "number_of_holes",
     "last_kappa",
     "run_one_photon",

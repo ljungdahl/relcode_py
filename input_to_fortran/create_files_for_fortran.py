@@ -6,36 +6,6 @@ from input_to_fortran.create_knotpoint_sequence import get_knotpoint_sequence_fr
 
 g_eV_per_Hartree = 27.211396641308
 
-# This is a list of possible orbitals for an atomic system
-# The tuples represent (n, l, 2j, occupation_number)
-g_list_of_orbital_tuples = [
-    (1, 0, 1, 2),
-    (2, 0, 1, 2),
-    (2, 1, 1, 2),
-    (2, 1, 3, 4),
-    (3, 0, 1, 2),
-    (3, 1, 1, 2),
-    (3, 1, 3, 4),
-    (3, 2, 3, 4),
-    (3, 2, 5, 6),
-    (4, 0, 1, 2),
-    (4, 1, 1, 2),
-    (4, 1, 3, 4),
-    (4, 2, 3, 4),
-    (4, 2, 5, 6),
-    (4, 3, 5, 6),
-    (4, 3, 7, 8),
-    (5, 0, 1, 2),
-    (5, 1, 1, 2),
-    (5, 1, 3, 4),
-    (5, 2, 3, 4),
-    (5, 2, 5, 6),
-    (6, 0, 1, 2),
-    (6, 1, 1, 2),
-    (6, 1, 3, 4)
-]
-
-
 ##################################################################################################
 #
 ##################################################################################################
@@ -79,7 +49,9 @@ def is_folder_empty(path):
 #
 ##################################################################################################
 def create_atom_parameters_file(parsed_vars_dict, generated_input_path):
-    global g_list_of_orbital_tuples
+
+    charge_Z = parsed_vars_dict["nuclear_charge_Z"]
+    list_of_orbital_tuples = get_atom_orbitals_list(charge_Z)
 
     var_list = g_user_input_params_list
 
@@ -87,33 +59,25 @@ def create_atom_parameters_file(parsed_vars_dict, generated_input_path):
     file = open(filename, "w")
 
     orbital_counter = 0
-    # We loop through the list since it should be in the same order as the user input .txt-file.
-    for var in var_list:
-        if var == "nuclear_charge_Z":
-            write_double_var_comment_and_value(file, var, parsed_vars_dict[var])
 
-        elif var == "highest_occupied_orbital":
-            value = parsed_vars_dict[var]
+    var = "nuclear_charge_Z"
+    write_double_var_comment_and_value(file, var, parsed_vars_dict[var])
 
-            for orbital_tuple in g_list_of_orbital_tuples:
-                orbital_counter += 1
-                if orbital_tuple == value:
-                    break
-            num_orbitals_comment = "# num orbitals"
-            write_string_to_file(file, num_orbitals_comment)
-            num_orbitals = "%i" % orbital_counter
-            write_string_to_file(file, num_orbitals)
 
-        elif var == "number_of_holes":
-            write_integer_var_comment_and_value(file, var, parsed_vars_dict[var])
+    num_orbitals_comment = "# num orbitals"
+    write_string_to_file(file, num_orbitals_comment)
+    num_orbitals = "%i" % len(list_of_orbital_tuples)
+    write_string_to_file(file, num_orbitals)
 
-        elif var == "last_kappa":
-            write_integer_var_comment_and_value(file, var, parsed_vars_dict[var])
+    var ="number_of_holes"
+    write_integer_var_comment_and_value(file, var, parsed_vars_dict[var])
+
+    var = "last_kappa"
+    write_integer_var_comment_and_value(file, var, parsed_vars_dict[var])
 
     # Write all the included orbitals in a sequence here
     write_string_to_file(file, "# Orbitals for atom (n, l, 2j, occupation number)")
-    for i in range(orbital_counter):
-        orbital_tuple = g_list_of_orbital_tuples[i]
+    for orbital_tuple in list_of_orbital_tuples:
         write_str = "%i %i %i %i" % (orbital_tuple[0], orbital_tuple[1], orbital_tuple[2], orbital_tuple[3])
         write_string_to_file(file, write_str)
 
@@ -319,5 +283,88 @@ def remove_previous_generation_complete_file(generated_input_path):
 
     return
 
+
+def get_atom_orbitals_list(charge_Z):
+    # The Fortran program uses a list of orbitals in a (n, l, 2j, occupation_number) format.
+    # This function provides that kind of list to the generator script.
+    # You can extend this whatever way necessary, for example when calculation some ion.
+    # The Fortran program calculates the long range charge as
+    # lr_charge = charge_Z-sum(occupation_numbers)+1.0
+    # So specifying Z and orbitals with proper occupation numbers should suffice for running ions.
+
+    # He = 1s^2
+    helium_orbitals = [
+        (1, 0, 1, 2),
+    ]
+
+    # Ne = [He] 2s^2 2p^6
+    neon_orbitals = helium_orbitals + [
+        (2, 0, 1, 2),
+        (2, 1, 1, 2),
+        (2, 1, 3, 4),
+    ]
+
+    # Ar = [Ne] 3s^2 3p^6
+    argon_orbitals = neon_orbitals + [
+        (3, 0, 1, 2),
+        (3, 1, 1, 2),
+        (3, 1, 3, 4)
+    ]
+
+    # Kr = [Ar] 3d^10 4s^2 4p^6
+    krypton_orbitals = argon_orbitals + [
+        (3, 2, 3, 4),
+        (3, 2, 5, 6),
+        (4, 0, 1, 2),
+        (4, 1, 1, 2),
+        (4, 1, 3, 4)
+    ]
+
+    # Xe = [Kr] 4d^10 5s^2 5p^6
+    xenon_orbitals = krypton_orbitals + [
+        (4, 2, 3, 4),
+        (4, 2, 5, 6),
+        (5, 0, 1, 2),
+        (5, 1, 1, 2),
+        (5, 1, 3, 4)
+    ]
+
+    # Rn = [Xe] 4f^14 5d^10 6s^2 6p^6
+    # Since we now ad 4f before n=5 orbitals we
+    # just add first two rows from xenon orbitals first.
+    radon_orbitals = krypton_orbitals + [
+        (4, 2, 3, 4),
+        (4, 2, 5, 6),
+        (4, 3, 5, 6),
+        (4, 3, 7, 8),
+        (5, 0, 1, 2),
+        (5, 1, 1, 2),
+        (5, 1, 3, 4),
+        (5, 2, 3, 4),
+        (5, 2, 5, 6),
+        (6, 0, 1, 2),
+        (6, 1, 1, 2),
+        (6, 1, 3, 4)
+    ]
+
+    if charge_Z == 2.0:
+        return helium_orbitals
+    elif charge_Z == 10.0:
+        return neon_orbitals
+    elif charge_Z == 18.0:
+        return argon_orbitals
+    elif charge_Z == 36.0:
+        return krypton_orbitals
+    elif charge_Z == 54.0:
+        return xenon_orbitals
+    elif charge_Z == 86.0:
+        return radon_orbitals
+    else:
+        print("\nFATAL ERROR: Nuclear charge Z = %.1f not supported!" % charge_Z)
+        print("You can add your own set of orbitals to get_atom_orbitals_list() in file %s \n"
+              % __file__)
+        raise Exception("FATAL ERROR: Nuclear charge Z = %.1f not supported!" % charge_Z,
+        "You can add your own set of orbitals to get_atom_orbitals_list() in file %s"
+        % __file__)
 
 
