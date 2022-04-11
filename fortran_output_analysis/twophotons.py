@@ -169,6 +169,8 @@ class TwoPhotons:
         else:
             raise ValueError("Need to specify emission ('emi') or absorption ('abs') when adding matrix elements data!")
 
+        return
+
     # This is a method to get the data that is summed over intermediate states and over m values.
     def get_matrix_elements_for_hole_to_final(self, hole_kappa, final_kappa, abs_or_emi, mj):
 
