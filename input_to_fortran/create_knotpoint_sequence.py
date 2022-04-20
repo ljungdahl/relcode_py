@@ -22,8 +22,8 @@ def get_knotpoint_sequence_from_params(params_dict):
     grid_end_point = params_dict["grid_end_point"]
 
     # First region
-    first_non_zero_point = 0.5 / Z
-    second_non_zero_point = 3 * first_non_zero_point
+    first_non_zero_point = params_dict["first_non_zero_point"]
+    second_non_zero_point = params_dict["second_point_multiplier"] * first_non_zero_point
     end_point_of_start_exp_region = params_dict["end_point_of_inner_region"]
     num_start_exponential_points = params_dict["inner_region_number_of_exponential_points"]
 

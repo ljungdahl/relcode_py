@@ -1,7 +1,68 @@
 import numpy as np
 from fortran_output_analysis.constants_and_parameters import g_eV_per_Hartree
+from fortran_output_analysis.common_utility import kappa_from_l_and_j, l_from_str
 
-#--- Start Channel
+# NOTE(anton):
+# 1 Mbarn = 1e-18 cm^2
+# 1 a_0 = 5.29177210903 * 1e-9 cm.
+# 1 a_0^2 = (5.29177210903)^2 * (1e-18) cm^2
+# =>
+# 1 Mbarn = (5.29177210903)^2 a_0^2
+g_au_to_Mbarn = (0.529177210903) * (0.529177210903) * 100
+
+# Resonance class
+# This keeps q, value, epsilon etc for a given energy by user choice
+# How this is calculated is shown in Lindroth PRA 1995 "Photodetachment of H- and Li-"
+class Resonance:
+    def __init__(self, eigval_idx, eigenvalue, matrix_element):
+        self.C_const = (4.0*np.pi/3.0)*(1/137.035999074)*g_au_to_Mbarn
+        self.eigenvalue_index = eigval_idx  # This is the index for the eigenvalue & matrix element for the resonance.
+        self.eigenvalue = eigenvalue  # E + iGamma/2 complex number from Diag.
+        self.matrix_element = matrix_element  # Complex number from Diag.
+        self.R_k = np.real(self.matrix_element*self.matrix_element)
+        self.I_k = np.imag(self.matrix_element*self.matrix_element)
+        self.energy = np.real(self.eigenvalue)
+        self.half_gamma = -np.imag(self.eigenvalue) # eigenvalue = E - iGamma/2 -> Gamma/2 = -imag(eigenvalue).
+        self.b = compute_b_parameter(self.energy, self.R_k, self.I_k, self.half_gamma)
+        self.q = compute_q_parameter(self.b)
+
+    def compute_sigma0(self, q_idx=2):
+        # We can either choose q or let the routines choose appropriate q according to
+        # if I_k < 0, or I_k > 0.
+        if q_idx >= 2:
+            q_index = 0
+            if self.I_k > 0:
+                q_index = 1
+        else:
+            q_index = q_idx
+
+        prefac = -(self.I_k*self.C_const)/(2.0*self.q[q_index])
+        sigma0 = prefac*(self.energy/self.half_gamma-(self.R_k/self.I_k))
+
+        return sigma0
+
+    def get_fano_profile(self, omega, q_idx=2):
+        # We can either choose q or let the routines choose appropriate q according to
+        # if I_k < 0, or I_k > 0.
+        if q_idx >= 2:
+            q_index = 0
+            if self.I_k > 0:
+                q_index = 1
+        else:
+            q_index = q_idx
+
+        epsilon = self.get_epsilon(omega)
+        q = self.q[q_index]
+        profile = ((q+epsilon)*(q+epsilon))/(1+epsilon*epsilon)
+
+        return profile
+
+    def get_epsilon(self, omega):
+        epsilon = (omega-self.energy)/self.half_gamma
+        return epsilon
+
+
+# Start Channel
 class Channel:
     def __init__(self):
         self.kappa_hole = 256
@@ -19,8 +80,6 @@ class Channel:
     def print_vars(self):
         print(vars(self))
 
-#-------------- End Channel
-
 
 #--- Start Diagonalisation class
 class Diagonalisation:
@@ -35,6 +94,12 @@ class Diagonalisation:
         self.matrix_elements = np.array([0+0*1j])
         self.read_matrix_elements = False
         self.system_size = 0
+
+    def load_diag_data_from_directory(self, data_dir):
+        # Note that channel indices has to be read first.
+        self.load_channel_data(data_dir+"diag_channel_indices.dat")
+        self.load_eigenvalues(data_dir + "diag_eigenvalues.dat")
+        self.load_matrix_elements(data_dir+"diag_matrix_elements.dat")
 
     def load_channel_data(self, path_to_channel_indices_file):
         self.channels, self.channels_dict = parse_channel_indices(path_to_channel_indices_file)
@@ -105,6 +170,11 @@ class Diagonalisation:
             num_rows = mat_elems_raw.shape[0]
             self.matrix_elements = np.zeros(num_rows, dtype=complex)
             self.matrix_elements = mat_elems_re + 1j*mat_elems_im
+            # Since the dipole transitions elements are defined with an overall extra i-factor in Fortran,
+            # we just multiply by -i here again to remove that.
+            # What is called "matrix element" M here is M_k = sum_i x_k^i * dipole_element_i,
+            # where x_k^i are the coefficients in the array representing eigenvector x_k after diagonalisation.
+            self.matrix_elements *= -1j
 
             print("Loaded %i complex matrix elements M_k = sum(psi_k * all_dipole) from %s" %
                   (num_rows, path_to_matrix_elems_file))
@@ -125,7 +195,16 @@ class Diagonalisation:
                      psi = self.eigenvectors[:, k]
                      self.matrix_elements[k] = np.sum(psi * rhs)
 
-    #def get_coefficients_for_channel
+    def compute_absorption_cross_section(self, omega_list):
+        N = len(omega_list)
+        cs = np.zeros(N)
+        for i in range(N):
+            omega = omega_list[i]
+            cs[i] = compute_diag_cross_section(self, omega)
+
+        return cs
+
+
 
 
 
@@ -135,6 +214,24 @@ class Diagonalisation:
 # ------------------------------------------------
 # ------------------------------------------------
 #
+
+
+def compute_b_parameter(E, R, I_k, half_gamma):
+    E_by_halfGamma = E/half_gamma
+    R_by_I = R/I_k
+    enum = E_by_halfGamma*R_by_I+1.0
+    denom = R_by_I - E_by_halfGamma
+    b = enum/denom
+    return b
+
+
+def compute_q_parameter(b):
+    q1 = b + np.sqrt(b*b + 1)
+    q2 = b - np.sqrt(b*b + 1)
+
+    return (q1, q2)
+
+
 def compute_diag_cross_section(atom_system: Diagonalisation, photon_energy_ev):
     photon_energy_au = photon_energy_ev/g_eV_per_Hartree
 
@@ -162,11 +259,11 @@ def compute_diag_cross_section(atom_system: Diagonalisation, photon_energy_ev):
 
     pi = np.pi
 
-    # TODO(anton): Is the minus sign in C (below) actually correct?
-    # Ie is not the denominator -E+omega above, instead?
-    # Fortran code seems to be consistent with (E-omega)...
-    # But we are also having an overall minus in the old jimmy cross section calculations...
-    C = -(4.0*pi/3.0)*(1.0/c_au)*au_to_Mbarn
+    # NOTE(anton): There used to be an unexplained overall factor -1 here,
+    # but it comes from a definition of the dipole element with an extra i-factor in Fortran.
+    # This resulted in a -1 factor when taking the square of M above.
+    # Now the M are loaded with that i-factor removed, however!
+    C = (4.0*pi/3.0)*(1.0/c_au)*au_to_Mbarn
 
     out_Mbarn = C*np.imag(imag_term)*np.real(omega)
     #out_Mbarn = C*np.imag(imag_term)*np.sqrt(np.real(omega))
@@ -218,45 +315,6 @@ def compute_diag_cross_section_single_element(atom_system: Diagonalisation, phot
 # ------------------------------------------------
 # ------------------------------------------------
 # Utility functions
-def kappa_from_l_and_j(l, j):
-    if(2*l == 2*j-1.0):
-        return l
-    else:
-        return -(l+1)
-
-def l_from_kappa(kappa):
-    if(kappa < 0):
-        return -kappa-1
-    else:
-        return kappa
-
-def j_from_kappa(kappa):
-    l = l_from_kappa(kappa)
-    if(kappa < 0):
-        return l+0.5
-    else:
-        return l-0.5
-
-
-
-def l_from_str(l_str):
-    l = -1
-
-    if (l_str == "s"):
-        l = 0
-    elif (l_str == "p"):
-        l = 1
-    elif (l_str == "d"):
-        l = 2
-    elif (l_str == "f"):
-        l = 3
-
-    if(l == -1):
-        raise ValueError("l_from_str(): invalid or unimplemented string for l quantum number.")
-    else:
-        return l
-
-
 
 def parse_channel_indices(path_to_file):
     channels_list = []

@@ -113,9 +113,8 @@ def create_run_parameters_file(parsed_vars_dict, generated_input_path):
         print("two photons require one photon data.")
         raise Exception("Can't run two photons without running first photon calculation.")
 
-    if parsed_vars_dict["run_diagonalise_CIS"] and \
-            (parsed_vars_dict["run_one_photon"] or parsed_vars_dict["run_two_photons"]):
-        print("\nWARNING! run_diagonalise_CIS set to true will skip one- and two-photon calculations.\n")
+    if parsed_vars_dict["run_diagonalise"] and not parsed_vars_dict["run_forward_only"]:
+        print("\n WARNING! Diagonalisation of full RRPAE not fully tested!")
 
     file.close()
     #print("Wrote to %s" % filename)
@@ -183,6 +182,19 @@ def create_file_io_parameters_file(parsed_vars_dict, current_workdir, generated_
 #
 ##################################################################################################
 def create_knotpoint_sequence_and_box_parameters_file(parsed_vars_dict, generated_input_path):
+
+    Z = parsed_vars_dict["nuclear_charge_Z"]
+    first_point = parsed_vars_dict["first_non_zero_point"]
+    max_first_nonzero_coord = 0.5/Z
+
+    if first_point > max_first_nonzero_coord:
+        print("\n")
+        print("WARNING! first_non_zero_point greater than 0.5/Z, for Z = %f" % Z)
+        print("first_non_zero_point = ", first_point)
+        print("0.5/Z = ", max_first_nonzero_coord)
+        print("Consider putting knot points closer to the origin.")
+        print("\n")
+
     print("\nGenerating knotpoint sequence:")
     knotsequence, start_imag_coord = get_knotpoint_sequence_from_params(parsed_vars_dict)
     print("\n")

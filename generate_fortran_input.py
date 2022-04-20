@@ -35,11 +35,33 @@ from input_to_fortran.create_files_for_fortran import create_atom_parameters_fil
     create_knotpoint_sequence_and_box_parameters_file, create_photon_sequence_and_parameters_file, \
     create_generation_complete_file_for_fortran_validation, remove_previous_generation_complete_file
 
-globbed_filenames = glob.glob(current_workdir_path+"/"+"*.relcode_input")
-if len(globbed_filenames) > 1:
-    raise Exception("Too many *.relcode_input-files detected! We can only have one input file.")
+# Parse the input argument. It should be the filename of the desired .relcode_input file,
+# and it should be a single argument.
+glob_for_input = False
 
-input_file_name = globbed_filenames[0]  # glob gives us a list so we take the element
+num_args = len(sys.argv)
+if num_args > 1:
+    input_arg = sys.argv[1]
+    print("input_arg = ", input_arg)
+    if num_args == 2:
+        input_file_name = input_arg
+    else:
+        raise Exception("Too many arguments to python script, please provide a single file name for the input."
+                        "If you only have a single input file no argument needs to be provided.")
+else:
+    glob_for_input = True
+
+
+# If we're not providing an input file we glob for a single .relcode_input file in the cwd
+if glob_for_input:
+    globbed_filenames = glob.glob(current_workdir_path+"/"+"*.relcode_input")
+    if len(globbed_filenames) > 1:
+        raise Exception("Too many *.relcode_input-files detected! We can only have one input file. \n"
+                        "If working with several input files you can provde the relevant"
+                        " one as input to the script, i.e.:\n"
+                        "python3 generate_fortran_input.py <name_of_input_file_in_current_working_directory>")
+
+    input_file_name = globbed_filenames[0]  # glob gives us a list so we take the element
 
 # Create directories for Fortran file if they don't exist.
 generated_input_path = current_workdir_path+"/generated_input"

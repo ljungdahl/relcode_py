@@ -6,6 +6,48 @@
 import numpy as np
 from sympy import N as sympy_to_num
 from sympy.physics.wigner import wigner_3j
+import glob
+
+# ==================================================================================================
+#
+# ==================================================================================================
+def get_one_photon_directory_metadata(data_dir):
+    # This function just parses the Fortran output data directory for
+    # the folders called pert_<kappa>_<number>.
+    # It then gives back the directory name and kappa as a tuple (kappa, dir_name, n)
+    # where n is the principal quantum number calculated from the last number k of the pert dirs,
+    # which is k = n-l
+    globbed_pert_dirs = glob.glob(data_dir + "pert_*")
+    globbed_without_old = []
+    # We don't want any "old" pert data directories
+    for globbed_dir in globbed_pert_dirs:
+        if globbed_dir.find("old") == -1:
+            globbed_without_old.append(globbed_dir)
+
+    #print(globbed_pert_dirs)
+
+    tuples = []
+    for dir in globbed_without_old:
+        pert_only = dir[len(data_dir):]
+        N = len("pert_")
+        strip_pert = pert_only[N:]
+        end_only = strip_pert[-1:]
+        end_int = int(end_only)
+        #print(end_only)
+        strip_end = strip_pert[:-2]
+        kappa_str = strip_end
+        kappa = int(kappa_str)
+        l = l_from_kappa(kappa)
+        n = end_int + l
+        kappa_pert_tuple = (pert_only, kappa, n)
+        #print(kappa_pert_tuple)
+        tuples.append( kappa_pert_tuple )
+
+    print(tuples)
+
+    return tuples
+
+
 
 # ==================================================================================================
 #
