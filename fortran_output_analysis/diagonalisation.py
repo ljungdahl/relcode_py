@@ -17,8 +17,8 @@ class Resonance:
     def __init__(self, eigval_idx, eigenvalue, matrix_element):
         self.C_const = (4.0*np.pi/3.0)*(1/137.035999074)*g_au_to_Mbarn
         self.eigenvalue_index = eigval_idx  # This is the index for the eigenvalue & matrix element for the resonance.
-        self.eigenvalue = eigenvalue  # E + iGamma/2 complex number from Diag.
-        self.matrix_element = matrix_element  # Complex number from Diag.
+        self.eigenvalue = eigenvalue  # E + iGamma/2 complex number from diag_eigenvalues.dat.
+        self.matrix_element = matrix_element  # Complex number from diag_matrix_elements.dat.
         self.R_k = np.real(self.matrix_element*self.matrix_element)
         self.I_k = np.imag(self.matrix_element*self.matrix_element)
         self.energy = np.real(self.eigenvalue)
