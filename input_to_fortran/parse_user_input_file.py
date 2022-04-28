@@ -106,7 +106,14 @@ def parse_user_input_file(file_path):
 
     file.close()
 
+    if "write_binary_data_for_diag_extension" not in g_parsed_variables_dict.keys():
+        g_parsed_variables_dict["write_binary_data_for_diag_extension"] = False
+        print("WARNING: Couldn't find write_binary_data_for_diag_extension parameter. Adding it set to False by default.\n"
+              "NOTE: Only relevant if running diagonalisation.\n")
+
+    print("Parameters parsed from input file:")
     for param in g_user_input_params_list:
         print(param + " : ", g_parsed_variables_dict[param])
+
 
     return g_parsed_variables_dict

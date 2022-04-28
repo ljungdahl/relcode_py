@@ -13,6 +13,7 @@ g_user_input_params_list = [
     "run_diagonalise",
     "write_diag_eigenvectors",
     "write_diag_coefficients",
+    "write_binary_data_for_diag_extension",
     "path_to_output_folder",
     "path_to_previous_output",
     "path_to_experimental_energies",
@@ -40,7 +41,8 @@ g_bool_parameters = ["run_one_photon",
                      "run_two_photons",
                      "run_diagonalise",
                      "write_diag_eigenvectors",
-                     "write_diag_coefficients"
+                     "write_diag_coefficients",
+                     "write_binary_data_for_diag_extension"
                      ]
 
 g_float_parameters = ["nuclear_charge_Z",

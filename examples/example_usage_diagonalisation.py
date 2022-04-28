@@ -125,25 +125,3 @@ plt.ylabel("cross section [Mbarn]")
 plt.legend()
 
 plt.show()
-
-
-
-
-# Old example code
-# NOTE(anton): The Diagonalisation-class is not so fleshed out as OnePhoton or TwoPhotons, ie it basically only loads
-# in the raw data and parses the channel indices file.
-# Initialise the container for the diagCIS-data from Fortran:
-# neon_diag = Diagonalisation("neon")
-#
-# data_dir = "/home/anton/lx04/relcode_examples/neon_example/output/"
-#
-# # Read Fortran output data from file.
-# # NOTE(anton): For plotting resonances in absorption cross-section the channel data is not used.
-# # But it's good to load this anyway since we can reason about what the Fortran program is outputting using the
-# # channel data. Right now the script fails if we haven't loaded channel data!
-# # Loading channel data entails some parsing of the "diag_channel_indices.dat"-file, and there might be errors here...
-# neon_diag.load_channel_data(data_dir+"diag_channel_indices.dat")
-#
-# # For computing the absorption cross section we do need the eigenvalues and the matrix elements.
-# neon_diag.load_eigenvalues(data_dir+"diag_eigenvalues.dat")
-# neon_diag.load_matrix_elements(data_dir+"diag_matrix_elements.dat")
