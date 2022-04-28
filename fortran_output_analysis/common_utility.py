@@ -126,8 +126,11 @@ def l_to_str(l):
         return "f"
     elif (l == 4):
         return "g"
+    elif (l == 5):
+        return "h"
     else:
-        raise ValueError("l_to_str(): invalid or unimplemented string for l quantum number.")
+        raise ValueError("l_to_str(): invalid or unimplemented string for l quantum number."
+                         "Function was given l =", l)
 
 
 # ==================================================================================================
