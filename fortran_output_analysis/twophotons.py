@@ -4,8 +4,8 @@ from itertools import islice  # Slicing when reading lines from Fortran files.
 from fortran_output_analysis.constants_and_parameters import g_eV_per_Hartree, g_omega_IR
 from fortran_output_analysis.common_utility import l_from_kappa, l_to_str, \
      wigner_eckart_phase, wigner3j_numerical2, j_from_kappa, \
-     j_from_kappa_int, IonHole
-
+     j_from_kappa_int, IonHole, phase
+from sympy.physics.wigner import wigner_3j, wigner_6j
 
 # ==================================================================================================
 #
@@ -221,10 +221,70 @@ class TwoPhotons:
                              hole_kappa, final_kappa))
         else:
             return retval, name
+    
+    def get_coupled_matrix_element(self, hole_kappa, abs_or_emi, final_kappa):
+        """Computes the value of the specified coupled matrix element."""
+        if abs_or_emi == "abs":
+            fortranM = self.matrix_elements_abs[hole_kappa]
+        elif abs_or_emi == "emi":
+            fortranM = self.matrix_elements_emi[hole_kappa]
+        else:
+            raise ValueError("Need to specify emission ('emi') or absorption ('abs') when getting matrix element data!")
 
+        #Get the length of the array of data points by looking up the index of the first open channel and checking
+        #the row length at that column.
+        energy_size = len(fortranM.raw_data_real[:,fortranM.ionisation_paths[fortranM.ionisation_paths.keys()[0]]])
+        coupled_matrix_element = np.zeros(energy_size)
 
+        for K in range(1,3):
+            for (loop_hole_kappa, intermediate_kappa,loop_final_kappa) in fortranM.ionisation_paths.keys():
+                #Loop through all the ionisation paths
+                if loop_hole_kappa == hole_kappa and loop_final_kappa == final_kappa:
+                    #only use those that match the requested initial and final state
+                    hole_j = j_from_kappa(hole_kappa)
+                    intermediate_j = j_from_kappa(intermediate_kappa)
+                    final_j = j_from_kappa(final_kappa)
+                    #get the column index of the raw fortran output file that contains the requested ionisation path
+                    col_index = fortranM.ionisation_paths[(hole_kappa,intermediate_kappa,final_kappa)].column_index
+                    coupled_matrix_element += phase(hole_j + final_j + K)*(2*K+1)*wigner_3j(1,1,K,0,0,0)*fortranM.raw_data_real[:,col_index] + 1j*fortranM.raw_data_imag[:,col_index]*wigner_6j(1,1,K,hole_j,final_j,intermediate_j)
+        
+        return coupled_matrix_element
+            
 
+    def get_asymmetry_parameter(self, hole_kappa, n):
+        """This function returns a function for computing the value of the
+        n:th asymmetry parameter for a state defined by hole_kappa."""
+        
+        mag = lambda x: np.abs(x)**2
+        cross = lambda x, y: 2*np.real(x*np.conj(y))
 
+        if np.abs(hole_kappa) == 1:
+            if hole_kappa == -1:
+                M1 = self.get_coupled_matrix_element(hole_kappa, -1)
+                M2 = self.get_coupled_matrix_element(hole_kappa, 2)
+                M3 = self.get_coupled_matrix_element(hole_kappa, -3)
+            else:
+                M1 = self.get_coupled_matrix_element(hole_kappa, 1)
+                M2 = self.get_coupled_matrix_element(hole_kappa, -2)
+                M3 = self.get_coupled_matrix_element(hole_kappa, 3)
+
+            if n == 2:
+                return (8*mag(M3) + 7*mag(M2) \
+                    + 7*np.sqrt(15)*cross(M1, M3) \
+                    + np.sqrt(6)*cross(M2, M3) \
+                    + 7*np.sqrt(10)*cross(M2, M1)) \
+                    / (7*(mag(M3) + 5*mag(M1) + (mag(M2))))
+            elif n == 4:
+                return 6*(mag(M3) + np.sqrt(6)*cross(M2,M3)) \
+                    / (7*(mag(M3) + 5*mag(M1) + mag(M2)))
+            else:
+                raise NotImplementedError(f"{n} is not an implemented value for n")
+
+        elif np.abs(hole_kappa) == 2:
+            raise NotImplementedError()
+
+        else:
+            raise NotImplementedError("The given combination of initial kappa and n is not yet implemented")
 
 
 
