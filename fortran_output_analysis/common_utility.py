@@ -81,6 +81,14 @@ def l_from_kappa(kappa):
         return kappa
 
 
+def phase(x):
+    """Returns 1 if the input is even and -1 if it is odd. Mathematically equivalent to (-1)^x"""
+    if x % 2 == 0:
+        return 1
+    else:
+        return -1
+
+
 def j_from_kappa(kappa):
     l = l_from_kappa(kappa)
     if (kappa < 0):
