@@ -272,7 +272,7 @@ class TwoPhotons:
             return [sig*(mag-2), -sig*(mag-1), sig*mag, -sig*(mag+1), sig*(mag+2)]
 
         
-    def get_asymmetry_parameter(self, n, hole_kappa, path):
+    def get_asymmetry_parameter(self, n, hole_kappa, path=os.path.dirname(os.path.abspath(__file__)) + os.path.sep + "asymmetry_coeffs"):
         """This function returns the value of the
         n:th asymmetry parameter for a state defined by hole_kappa.
         If you want to use some other formula for the coefficients than the default,

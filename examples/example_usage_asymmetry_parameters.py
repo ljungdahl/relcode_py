@@ -54,17 +54,11 @@ n = 3
 two_photons.add_matrix_elements(path_abs, "abs", kappa_3p1half, n)  # absorption
 two_photons.add_matrix_elements(path_emi, "emi", kappa_3p1half, n)  # emission
 
-# In order to get the asymmetry parameters we will need to specify the path to the folder containing
-# the coeffieients used when calculating the asymmetry parameters. This is located in
-#fortran_output_analysis/asymmetry_coeffs in the repository
-
-asym_path = "/home/jsorngard/Mirrors/atomlx04/Repo/relcode_py/fortran_output_analysis/asymmetry_coeffs"
-
 # Then we can get the asymmetry parameters like so:
+b2 = two_photons.get_asymmetry_parameter(2, kappa_3p1half)
+b4 = two_photons.get_asymmetry_parameter(4, kappa_3p1half)
 
-b2 = two_photons.get_asymmetry_parameter(2,kappa_3p1half,asym_path)
-b4 = two_photons.get_asymmetry_parameter(4,kappa_3p1half,asym_path)
-
+# And plot them
 plt.plot(omega, b2, label="$\\beta_2$")
 plt.plot(omega, b4, label="$\\beta_4$")
 plt.legend()
