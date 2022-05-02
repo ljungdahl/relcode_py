@@ -7,6 +7,7 @@ import numpy as np
 from sympy import N as sympy_to_num
 from sympy.physics.wigner import wigner_3j
 import glob
+import json
 
 # ==================================================================================================
 #
@@ -79,6 +80,26 @@ def l_from_kappa(kappa):
         return -kappa - 1
     else:
         return kappa
+
+
+def phase(x):
+    """Returns 1 if the input is even and -1 if it is odd. Mathematically equivalent to (-1)^x"""
+    if x % 2 == 0:
+        return 1
+    else:
+        return -1
+
+def mag(x):
+    """Returns the absolute value squared of the input"""
+    return np.abs(x)**2
+
+def cross(x,y):
+    """Returns the 'cross term' between x and y: 2Re(x*y^dagger)"""
+    return 2*np.real(x*np.conjugate(y))
+
+
+def exported_mathematica_tensor_to_python_list(string):
+    return json.loads(string.replace("{","[").replace("}","]").replace("\n",""))
 
 
 def j_from_kappa(kappa):
