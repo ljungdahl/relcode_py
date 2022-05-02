@@ -279,6 +279,7 @@ class TwoPhotons:
 
         #Work out the kappa values of the five 'possible' channels.
         kappa_fs = final_kappas(hole_kappa, only_reachable=False)
+        
         #Get the coupled matrix elements for each of those channels.
         #M_k = M^abs_k + M^emi_k
         M = [self.get_coupled_matrix_element(hole_kappa, "abs", kappa_f) + self.get_coupled_matrix_element(hole_kappa, "emi", kappa_f) for kappa_f in kappa_fs]
@@ -313,7 +314,7 @@ class TwoPhotons:
             #This is not necessarily the integrated cross section as various numerical
             #factors could have canceled in the Mathematica computation.
             denominator += integrated_coeffs[i]*mag(M[i])
-            
+
             for j in range(5):
                 #Multiply each combination of matrix elements with its coefficient.
                 asymmetry_parameter += coeffs[i,j]*M[i]*np.conjugate(M[j])
