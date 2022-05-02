@@ -7,6 +7,7 @@ import numpy as np
 from sympy import N as sympy_to_num
 from sympy.physics.wigner import wigner_3j
 import glob
+import json
 
 # ==================================================================================================
 #
@@ -90,11 +91,11 @@ def phase(x):
 
 def mag(x):
     """Returns the absolute value squared of the input"""
-    np.abs(x)**2
+    return np.abs(x)**2
 
 def cross(x,y):
     """Returns the 'cross term' between x and y: 2Re(x*y^dagger)"""
-    2*np.real(x*np.conjugate(y))
+    return 2*np.real(x*np.conjugate(y))
 
 
 def exported_mathematica_tensor_to_python_list(string):

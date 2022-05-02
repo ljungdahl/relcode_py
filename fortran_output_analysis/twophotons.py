@@ -4,7 +4,7 @@ from itertools import islice  # Slicing when reading lines from Fortran files.
 from fortran_output_analysis.constants_and_parameters import g_eV_per_Hartree, g_omega_IR
 from fortran_output_analysis.common_utility import l_from_kappa, l_to_str, \
      wigner_eckart_phase, wigner3j_numerical2, j_from_kappa, \
-     j_from_kappa_int, IonHole, phase, exported_mathematica_tensor_to_python_list, mag
+     j_from_kappa_int, IonHole, phase, exported_mathematica_tensor_to_python_list, mag, cross
 from sympy.physics.wigner import wigner_3j, wigner_6j
 import os
 
@@ -252,6 +252,7 @@ class TwoPhotons:
         
         return coupled_matrix_element
    
+    @staticmethod
     def final_kappas(hole_kappa, only_reachable=True):
         """Returns a list of the kappa quantum numbers that are reachable with
         two photons from the state with the given initial kappa
@@ -271,14 +272,14 @@ class TwoPhotons:
             return [sig*(mag-2), -sig*(mag-1), sig*mag, -sig*(mag+1), sig*(mag+2)]
 
         
-    def get_asymmetry_parameter(self, n, hole_kappa, path="./asymmetry_coeffs"):
+    def get_asymmetry_parameter(self, n, hole_kappa, path):
         """This function returns the value of the
         n:th asymmetry parameter for a state defined by hole_kappa.
         If you want to use some other formula for the coefficients than the default,
         set path="path/to/folder/containing/coefficient/files". """
 
         #Work out the kappa values of the five 'possible' channels.
-        kappa_fs = final_kappas(hole_kappa, only_reachable=False)
+        kappa_fs = self.final_kappas(hole_kappa, only_reachable=False)
 
         #Get the coupled matrix elements for each of those channels.
         #M_k = M^abs_k + M^emi_k
@@ -286,13 +287,14 @@ class TwoPhotons:
         
         #If the path to the coefficient files does not end in a path separator, add it.
         if path[-1] is not os.path.sep:
-            path + os.path.sep
+            path = path + os.path.sep
 
         #Try opening the needed file.
         try:
             with open(path + f"asymmetry_coeffs_{n}_{hole_kappa}.txt","r") as coeffs_file:
                 coeffs_file_contents = coeffs_file.readlines()
-        except OSError:
+        except OSError as e:
+            print(e)
             raise NotImplementedError("the given combination of initial kappa and n is not yet implemented, or the file containing the coefficients could not be found")
 
         #Read in the n adn hole_kappa values found in the file.
@@ -315,9 +317,14 @@ class TwoPhotons:
             #factors could have canceled in the Mathematica computation.
             denominator += integrated_coeffs[i]*mag(M[i])
 
-            for j in range(5):
+            for j in range(i,5):
                 #Multiply each combination of matrix elements with its coefficient.
-                numerator += coeffs[i,j]*M[i]*np.conjugate(M[j])
+                if i == j:
+                    #If it's a diagonal term, we multiply the coefficient with the magnitue of the matrix element
+                    numerator += coeffs[i,j]*mag(M[i])
+                else:
+                    #otherwise we multiply with the cross term between the two matrix elements
+                    numerator += coeffs[i,j]*cross(M[i],M[j])
 
         return numerator/denominator
 

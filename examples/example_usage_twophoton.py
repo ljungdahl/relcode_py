@@ -8,7 +8,7 @@ import sys
 # If you are using some integrated development environment there is probably a better workflow
 # for you for addding the relcode_py repo to your environment.
 
-relcode_py_repo_path = "/home/anton/lx04/relcode_py/"
+relcode_py_repo_path = "/home/jsorngard/Mirrors/atomlx04/Repo/relcode_py"
 
 sys.path.append(relcode_py_repo_path)
 
@@ -19,7 +19,7 @@ from fortran_output_analysis.common_utility import kappa_from_l_and_j
 # Defining paths to the Fortran output data:
 #
 
-data_dir = "/home/anton/lx04/relcode_examples/argon_example/output/"
+data_dir = "/home/jsorngard/Mirrors/atomlx04/Repo/relcode_examples/argon_example/"
 twophoton_data_dir = data_dir+"second_photon/"
 
 path_abs = twophoton_data_dir + "m_elements_abs_-2_2.dat"
@@ -107,4 +107,6 @@ for channel in channels_3p3half:
 
     plt.plot(omega, np.real(z))
 
-plt.show()
+#plt.show()
+
+print(two_photons.get_asymmetry_parameter(2,hole_kappa,"/home/jsorngard/Mirrors/atomlx04/Repo/relcode_py/fortran_output_analysis/asymmetry_coeffs"))
