@@ -1,0 +1,6 @@
+#n, k0
+{4, -1}
+#Integrated cross section, s = sign(k0), m = |k0|; {s*(m-2), -s(m-1), sm, -s(m+1), s(m+2)}
+{0, 0, 5, 1, 1}
+#coefficients 5x5 table, rows and column index refer to the same kappa as the column index for the integrated cross section
+{{0, 0, 0, 0, 0}, {0, 0, 0, 0, 0}, {0, 0, 0, 0, 0}, {0, 0, 0, 0, 2.099562636671296}, {0, 0, 0, 2.099562636671296, 0.8571428571428571}}

@@ -88,6 +88,18 @@ def phase(x):
     else:
         return -1
 
+def mag(x):
+    """Returns the absolute value squared of the input"""
+    np.abs(x)**2
+
+def cross(x,y):
+    """Returns the 'cross term' between x and y: 2Re(x*y^dagger)"""
+    2*np.real(x*np.conjugate(y))
+
+
+def exported_mathematica_tensor_to_python_list(string):
+    return json.loads(string.replace("{","[").replace("}","]").replace("\n",""))
+
 
 def j_from_kappa(kappa):
     l = l_from_kappa(kappa)

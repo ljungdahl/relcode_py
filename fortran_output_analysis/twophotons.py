@@ -4,8 +4,9 @@ from itertools import islice  # Slicing when reading lines from Fortran files.
 from fortran_output_analysis.constants_and_parameters import g_eV_per_Hartree, g_omega_IR
 from fortran_output_analysis.common_utility import l_from_kappa, l_to_str, \
      wigner_eckart_phase, wigner3j_numerical2, j_from_kappa, \
-     j_from_kappa_int, IonHole, phase
+     j_from_kappa_int, IonHole, phase, exported_mathematica_tensor_to_python_list, mag
 from sympy.physics.wigner import wigner_3j, wigner_6j
+import os
 
 # ==================================================================================================
 #
@@ -233,10 +234,11 @@ class TwoPhotons:
 
         #Get the length of the array of data points by looking up the index of the first open channel and checking
         #the row length at that column.
-        energy_size = len(fortranM.raw_data_real[:,fortranM.ionisation_paths[fortranM.ionisation_paths.keys()[0]]])
-        coupled_matrix_element = np.zeros(energy_size)
+        random_col = fortranM.ionisation_paths[next(iter(fortranM.ionisation_paths.keys()))].column_index
+        energy_size = len(fortranM.raw_data_real[:,random_col])
+        coupled_matrix_element = np.zeros(energy_size,dtype='complex128')
 
-        for K in range(1,3):
+        for K in [0,2]:
             for (loop_hole_kappa, intermediate_kappa,loop_final_kappa) in fortranM.ionisation_paths.keys():
                 #Loop through all the ionisation paths
                 if loop_hole_kappa == hole_kappa and loop_final_kappa == final_kappa:
@@ -246,45 +248,79 @@ class TwoPhotons:
                     final_j = j_from_kappa(final_kappa)
                     #get the column index of the raw fortran output file that contains the requested ionisation path
                     col_index = fortranM.ionisation_paths[(hole_kappa,intermediate_kappa,final_kappa)].column_index
-                    coupled_matrix_element += phase(hole_j + final_j + K)*(2*K+1)*wigner_3j(1,1,K,0,0,0)*fortranM.raw_data_real[:,col_index] + 1j*fortranM.raw_data_imag[:,col_index]*wigner_6j(1,1,K,hole_j,final_j,intermediate_j)
+                    coupled_matrix_element += phase(hole_j + final_j + K)*(2*K+1)*float(wigner_3j(1,1,K,0,0,0))*fortranM.raw_data_real[:,col_index] + 1j*fortranM.raw_data_imag[:,col_index]*float(wigner_6j(1,1,K,hole_j,final_j,intermediate_j))
         
         return coupled_matrix_element
-            
+   
+    def final_kappas(hole_kappa, only_reachable=True):
+        """Returns a list of the kappa quantum numbers that are reachable with
+        two photons from the state with the given initial kappa
+        If only_reachable is set to true the function will only return kappa
+        values that can be reached from the initial kappa, otherwise it will
+        always return the five 'theoretically possible' channels"""
 
-    def get_asymmetry_parameter(self, hole_kappa, n):
-        """This function returns a function for computing the value of the
-        n:th asymmetry parameter for a state defined by hole_kappa."""
-        
-        mag = lambda x: np.abs(x)**2
-        cross = lambda x, y: 2*np.real(x*np.conj(y))
+        sig = np.sign(hole_kappa)
+        mag = np.abs(hole_kappa)
 
-        if np.abs(hole_kappa) == 1:
-            if hole_kappa == -1:
-                M1 = self.get_coupled_matrix_element(hole_kappa, -1)
-                M2 = self.get_coupled_matrix_element(hole_kappa, 2)
-                M3 = self.get_coupled_matrix_element(hole_kappa, -3)
-            else:
-                M1 = self.get_coupled_matrix_element(hole_kappa, 1)
-                M2 = self.get_coupled_matrix_element(hole_kappa, -2)
-                M3 = self.get_coupled_matrix_element(hole_kappa, 3)
-
-            if n == 2:
-                return (8*mag(M3) + 7*mag(M2) \
-                    + 7*np.sqrt(15)*cross(M1, M3) \
-                    + np.sqrt(6)*cross(M2, M3) \
-                    + 7*np.sqrt(10)*cross(M2, M1)) \
-                    / (7*(mag(M3) + 5*mag(M1) + (mag(M2))))
-            elif n == 4:
-                return 6*(mag(M3) + np.sqrt(6)*cross(M2,M3)) \
-                    / (7*(mag(M3) + 5*mag(M1) + mag(M2)))
-            else:
-                raise NotImplementedError(f"{n} is not an implemented value for n")
-
-        elif np.abs(hole_kappa) == 2:
-            raise NotImplementedError()
-
+        if mag == 1 and only_reachable:
+            return [sig*mag, -sig*(mag+1), sig*(mag+2)]
+        elif mag == 2 and only_reachable:
+            return [-sig*(mag-1), sig*mag, -sig*(mag+1), sig*(mag+2)]
         else:
-            raise NotImplementedError("The given combination of initial kappa and n is not yet implemented")
+            #These are the 'theoretically possible' channels.
+            return [sig*(mag-2), -sig*(mag-1), sig*mag, -sig*(mag+1), sig*(mag+2)]
+
+        
+    def get_asymmetry_parameter(self, n, hole_kappa, path="./asymmetry_coeffs"):
+        """This function returns the value of the
+        n:th asymmetry parameter for a state defined by hole_kappa.
+        If you want to use some other formula for the coefficients than the default,
+        set path="path/to/folder/containing/coefficient/files". """
+
+        #Work out the kappa values of the five 'possible' channels.
+        kappa_fs = final_kappas(hole_kappa, only_reachable=False)
+        #Get the coupled matrix elements for each of those channels.
+        M = [self.get_coupled_matrix_element(hole_kappa, "abs", kappa_f) + self.get_coupled_matrix_element(hole_kappa, "emi", kappa_f) for kappa_f in kappa_fs]
+        
+        #If the path to the coefficient files does not end in a path separator, add it.
+        if path[-1] is not os.path.sep:
+            path + os.path.sep
+
+        #Try opening the needed file.
+        try:
+            with open(path+f"asymmetry_coeffs_{n}_{hole_kappa}.txt","r") as coeffs_file:
+                coeffs_file_contents = coeffs_file.readlines()
+        except OSError:
+            raise NotImplementedError("the given combination of initial kappa and n is not yet implemented, or the file containing the coefficients could not be found")
+
+        #Read in the n adn hole_kappa values found in the file.
+        read_n, read_hole_kappa = exported_mathematica_tensor_to_python_list(coeffs_file_contents[1])
+        #If they do not match the ones given to the function, something has gone wrong.
+        if read_n != n or read_hole_kappa != hole_kappa:
+            raise ValueError("the n or hole_kappa in the coefficients file was not the same as those given to the function")
+
+        #Read in the coefficients in front of the absolute values in the integrated cross section.
+        integrated_coeffs = exported_mathematica_tensor_to_python_list(coeffs_file_contents[3])
+
+        #Read in the coefficients in front of all the different combinations of matrix elements.
+        coeffs = np.array(exported_mathematica_tensor_to_python_list(coeffs_file_contents[5]))
+
+        asymmetry_parameter = np.zeros(len(M[0]))
+        for i in range(5):
+            for j in range(5):
+                #Multiply each combination of matrix elements with its coefficient.
+                asymmetry_parameter += coeffs[i,j]*M[i]*np.conjugate(M[j])
+
+        denominator = np.zeros(len(M[0]))
+        for i in range(5):
+            #compute the 'integrated cross section' denominator.
+            #This is not necessarily the integrated cross section as various numerical
+            #factors could have canceled in the Mathematica computation.
+            denominator += integrated_coeffs[i]*mag(M[i])
+
+
+        return asymmetry_parameter/denominator
+
 
 
 
