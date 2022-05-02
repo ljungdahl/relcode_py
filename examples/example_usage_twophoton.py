@@ -107,6 +107,4 @@ for channel in channels_3p3half:
 
     plt.plot(omega, np.real(z))
 
-#plt.show()
-
-print(two_photons.get_asymmetry_parameter(2,hole_kappa,"/home/jsorngard/Mirrors/atomlx04/Repo/relcode_py/fortran_output_analysis/asymmetry_coeffs"))
+plt.show()
