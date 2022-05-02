@@ -280,6 +280,7 @@ class TwoPhotons:
         #Work out the kappa values of the five 'possible' channels.
         kappa_fs = final_kappas(hole_kappa, only_reachable=False)
         #Get the coupled matrix elements for each of those channels.
+        #M_k = M^abs_k + M^emi_k
         M = [self.get_coupled_matrix_element(hole_kappa, "abs", kappa_f) + self.get_coupled_matrix_element(hole_kappa, "emi", kappa_f) for kappa_f in kappa_fs]
         
         #If the path to the coefficient files does not end in a path separator, add it.
@@ -288,7 +289,7 @@ class TwoPhotons:
 
         #Try opening the needed file.
         try:
-            with open(path+f"asymmetry_coeffs_{n}_{hole_kappa}.txt","r") as coeffs_file:
+            with open(path + f"asymmetry_coeffs_{n}_{hole_kappa}.txt","r") as coeffs_file:
                 coeffs_file_contents = coeffs_file.readlines()
         except OSError:
             raise NotImplementedError("the given combination of initial kappa and n is not yet implemented, or the file containing the coefficients could not be found")
@@ -306,18 +307,16 @@ class TwoPhotons:
         coeffs = np.array(exported_mathematica_tensor_to_python_list(coeffs_file_contents[5]))
 
         asymmetry_parameter = np.zeros(len(M[0]))
-        for i in range(5):
-            for j in range(5):
-                #Multiply each combination of matrix elements with its coefficient.
-                asymmetry_parameter += coeffs[i,j]*M[i]*np.conjugate(M[j])
-
         denominator = np.zeros(len(M[0]))
         for i in range(5):
             #compute the 'integrated cross section' denominator.
             #This is not necessarily the integrated cross section as various numerical
             #factors could have canceled in the Mathematica computation.
             denominator += integrated_coeffs[i]*mag(M[i])
-
+            
+            for j in range(5):
+                #Multiply each combination of matrix elements with its coefficient.
+                asymmetry_parameter += coeffs[i,j]*M[i]*np.conjugate(M[j])
 
         return asymmetry_parameter/denominator
 
