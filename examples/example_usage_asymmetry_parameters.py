@@ -42,21 +42,10 @@ omega = two_photons.omega_eV  # We can also access it like two_photons.omega_Har
 two_photons.add_matrix_elements(path_abs, "abs", -2, 3)  # absorption
 two_photons.add_matrix_elements(path_emi, "emi", -2, 3)  # emission
 
-# To add the output from a different hole, in this case 3p1/2 we change the paths and kappa accordingly.
-# Note that we overwrite the path variables used previously, this is just a matter of convenience.
-path_abs = twophoton_data_dir + "m_elements_abs_1_2.dat"
-path_emi = twophoton_data_dir + "m_elements_emi_1_2.dat"
-
-# We can use the helper functions if we don't know the maps (l,j) <-> kappa by heart
-kappa_3p1half = kappa_from_l_and_j(l=1, j=1/2)
-print("l=1, j=1/2 -> kappa: ", kappa_3p1half)  # Should be 1 for l=1, j=1/2
-n = 3
-two_photons.add_matrix_elements(path_abs, "abs", kappa_3p1half, n)  # absorption
-two_photons.add_matrix_elements(path_emi, "emi", kappa_3p1half, n)  # emission
 
 # Then we can get the asymmetry parameters like so:
-b2 = two_photons.get_asymmetry_parameter(2, kappa_3p1half)
-b4 = two_photons.get_asymmetry_parameter(4, kappa_3p1half)
+b2 = two_photons.get_asymmetry_parameter(2, -2)
+b4 = two_photons.get_asymmetry_parameter(4, -2)
 
 # And plot them
 plt.plot(omega, b2, label="$\\beta_2$")
