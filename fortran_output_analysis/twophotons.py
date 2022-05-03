@@ -304,10 +304,10 @@ class TwoPhotons:
             raise ValueError("the n or hole_kappa in the coefficients file was not the same as those given to the function")
 
         #Read in the coefficients in front of the absolute values in the integrated cross section.
-        integrated_coeffs = exported_mathematica_tensor_to_python_list(coeffs_file_contents[3])
+        denominator_coeffs = exported_mathematica_tensor_to_python_list(coeffs_file_contents[3])
 
         #Read in the coefficients in front of all the different combinations of matrix elements.
-        coeffs = np.array(exported_mathematica_tensor_to_python_list(coeffs_file_contents[5]))
+        numerator_coeffs = np.array(exported_mathematica_tensor_to_python_list(coeffs_file_contents[5]))
 
         numerator = np.zeros(len(M[0]))
         denominator = np.zeros(len(M[0]))
@@ -315,16 +315,16 @@ class TwoPhotons:
             #compute the 'integrated cross section' denominator.
             #This is not necessarily the integrated cross section as various numerical
             #factors could have canceled in the Mathematica computation.
-            denominator += integrated_coeffs[i]*mag(M[i])
+            denominator += denominator_coeffs[i]*mag(M[i])
 
             for j in range(i,5):
                 #Multiply each combination of matrix elements with its coefficient.
                 if i == j:
                     #If it's a diagonal term, we multiply the coefficient with the magnitue of the matrix element
-                    numerator += coeffs[i,j]*mag(M[i])
+                    numerator += numerator_coeffs[i,j]*mag(M[i])
                 else:
                     #otherwise we multiply with the cross term between the two matrix elements
-                    numerator += coeffs[i,j]*cross(M[i],M[j])
+                    numerator += numerator_coeffs[i,j]*cross(M[i],M[j])
 
         return numerator/denominator
 
