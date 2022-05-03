@@ -297,16 +297,16 @@ class TwoPhotons:
             print(e)
             raise NotImplementedError("the given combination of initial kappa and n is not yet implemented, or the file containing the coefficients could not be found")
 
-        #Read in the n adn hole_kappa values found in the file.
+        #Read in the n and hole_kappa values found in the file.
         read_n, read_hole_kappa = exported_mathematica_tensor_to_python_list(coeffs_file_contents[1])
         #If they do not match the ones given to the function, something has gone wrong.
         if read_n != n or read_hole_kappa != hole_kappa:
             raise ValueError("the n or hole_kappa in the coefficients file was not the same as those given to the function")
 
-        #Read in the coefficients in front of the absolute values in the integrated cross section.
+        #Read in the coefficients in front of the absolute values in the denominator.
         denominator_coeffs = exported_mathematica_tensor_to_python_list(coeffs_file_contents[3])
 
-        #Read in the coefficients in front of all the different combinations of matrix elements.
+        #Read in the coefficients in front of all the different combinations of matrix elements in the numerator.
         numerator_coeffs = np.array(exported_mathematica_tensor_to_python_list(coeffs_file_contents[5]))
 
         numerator = np.zeros(len(M[0]))
