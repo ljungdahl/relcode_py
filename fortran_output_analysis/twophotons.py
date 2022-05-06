@@ -4,8 +4,9 @@ from itertools import islice  # Slicing when reading lines from Fortran files.
 from fortran_output_analysis.constants_and_parameters import g_eV_per_Hartree, g_omega_IR
 from fortran_output_analysis.common_utility import l_from_kappa, l_to_str, \
      wigner_eckart_phase, wigner3j_numerical2, j_from_kappa, \
-     j_from_kappa_int, IonHole, phase, exported_mathematica_tensor_to_python_list, mag, cross
+     j_from_kappa_int, IonHole, phase, exported_mathematica_tensor_to_python_list, mag, cross, coulomb_phase
 from sympy.physics.wigner import wigner_3j, wigner_6j
+from input_to_fortran.parse_user_input_file import parse_user_input_file
 import os
 
 # ==================================================================================================
@@ -45,30 +46,30 @@ class MatrixElements:
         self.path = path
         self.hole = IonHole(hole_kappa, hole_n)
         self.ionisation_paths = {}
-        file = open(path, "r")
 
-        # Sets up what the available ionisation paths are, and what columns in the file it is corresponding to.
-        parse_first_line_from_fortran_matrix_element_output_file(file, self.hole, self.ionisation_paths)
-        self.number_of_ionisation_paths = len(self.ionisation_paths)
+        with open(path,"r") as file:
 
-        # We use this list to only pick the non-zero data points after parsing raw data below.
-        self.path_col_indices = []
-        for ionisation_path in self.ionisation_paths.values():
-            self.path_col_indices.append(ionisation_path.file_column_index)
+            # Sets up what the available ionisation paths are, and what columns in the file it is corresponding to.
+            parse_first_line_from_fortran_matrix_element_output_file(file, self.hole, self.ionisation_paths)
+            self.number_of_ionisation_paths = len(self.ionisation_paths)
 
-        # These will be filled with parsing the rest of the file.
-        self.raw_data_real = np.zeros(1)
-        self.raw_data_imag = np.zeros(1)
-        # For any energy the matrix element is printed at each breakpoint from the Fortran program.
-        # So here we can control what breakpoints we choose.
-        self.breakpoint_step = 5
+            # We use this list to only pick the non-zero data points after parsing raw data below.
+            self.path_col_indices = []
+            for ionisation_path in self.ionisation_paths.values():
+                self.path_col_indices.append(ionisation_path.file_column_index)
 
-        self.raw_data_real, self.raw_data_imag = \
-            parse_matrix_element_raw_data_from_fortran_output_file(file,
-                                                                   self.number_of_ionisation_paths,
-                                                                   self.path_col_indices,
-                                                                   self.breakpoint_step)
-        file.close()
+            # These will be filled with parsing the rest of the file.
+            self.raw_data_real = np.zeros(1)
+            self.raw_data_imag = np.zeros(1)
+            # For any energy the matrix element is printed at each breakpoint from the Fortran program.
+            # So here we can control what breakpoints we choose.
+            self.breakpoint_step = 5
+
+            self.raw_data_real, self.raw_data_imag = \
+                parse_matrix_element_raw_data_from_fortran_output_file(file,
+                                                                       self.number_of_ionisation_paths,
+                                                                       self.path_col_indices,
+                                                                       self.breakpoint_step)
 
         # Errors for this are catched outside this class.
         abs_or_emi_string = "emission"
@@ -149,12 +150,12 @@ class TwoPhotons:
         self.omega_path = path
         self.omega_Hartree = np.loadtxt(path)
         self.omega_eV = self.omega_Hartree * self.eV_per_Hartree
-        #print(self.omega_eV.shape)
 
     # Add matrix elements after absorption or emission of an IR photon
     # for a particular hole (from XUV absorption),
     # using the output data from the Fortran program.
     def add_matrix_elements(self, path, abs_or_emi, hole_kappa, hole_n):
+
         if (abs_or_emi == "abs"):
             if (path.find("abs") == -1):
                 raise ValueError("Specified path not compliant with abs/emi convention! Got: path.find('abs') == -1")
@@ -223,8 +224,11 @@ class TwoPhotons:
         else:
             return retval, name
     
+
     def get_coupled_matrix_element(self, hole_kappa, abs_or_emi, final_kappa):
-        """Computes the value of the specified coupled matrix element."""
+        """Computes the value of the specified coupled matrix element.
+        This function also adds in the non-matrix element phases from the fortran program since that is
+        hard to do after coupling."""
         if abs_or_emi == "abs":
             fortranM = self.matrix_elements_abs[hole_kappa]
         elif abs_or_emi == "emi":
@@ -238,20 +242,55 @@ class TwoPhotons:
         energy_size = len(fortranM.raw_data_real[:,random_col])
         coupled_matrix_element = np.zeros(energy_size,dtype='complex128')
 
+        #Get the data from the correct phase file
+        phase_data = self._raw_short_range_phase(abs_or_emi, hole_kappa)
+
         for K in [0,2]:
+            #Loop through all the ionisation paths
             for (loop_hole_kappa, intermediate_kappa,loop_final_kappa) in fortranM.ionisation_paths.keys():
-                #Loop through all the ionisation paths
+                #Only use those that match the requested initial and final state
                 if loop_hole_kappa == hole_kappa and loop_final_kappa == final_kappa:
-                    #only use those that match the requested initial and final state
+                                        
+                    # Get j values
                     hole_j = j_from_kappa(hole_kappa)
                     intermediate_j = j_from_kappa(intermediate_kappa)
                     final_j = j_from_kappa(final_kappa)
-                    #get the column index of the raw fortran output file that contains the requested ionisation path
+
+                    # Get the column index of the raw fortran output file that contains the requested ionisation path
                     col_index = fortranM.ionisation_paths[(hole_kappa,intermediate_kappa,final_kappa)].column_index
-                    coupled_matrix_element += phase(hole_j + final_j + K)*(2*K+1)*float(wigner_3j(1,1,K,0,0,0))*fortranM.raw_data_real[:,col_index] + 1j*fortranM.raw_data_imag[:,col_index]*float(wigner_6j(1,1,K,hole_j,final_j,intermediate_j))
+
+                    #Add in the short range phase from the fortran program
+                    matrix_element = fortranM.raw_data_real[:,col_index] + 1j*fortranM.raw_data_imag[:,col_index]
+                    matrix_element *= np.exp(1j*phase_data[:,col_index])
+
+                    coupled_matrix_element += phase(hole_j + final_j + K)*(2*K+1)*float(wigner_3j(1,1,K,0,0,0))*matrix_element*float(wigner_6j(1,1,K,hole_j,final_j,intermediate_j))
         
         return coupled_matrix_element
-   
+
+    def _raw_short_range_phase(self, abs_or_emi, hole_kappa):
+        """Returns the short range phase for the given channel.
+        The channels are organized in the same way for the return value from this function
+        As the raw_data_real and raw_data_imag items of a MatrixElement object"""
+
+        if abs_or_emi == "abs":
+            M = self.matrix_elements_abs[hole_kappa]
+        elif abs_or_emi == "emi":
+            M = self.matrix_elements_emi[hole_kappa]
+        else:
+            raise ValueError(f"abs_or_emi can only be 'abs' or 'emi' not {abs_or_emi}")
+
+        #Determine the name of the data file
+        phase_file_name = "phase_" + abs_or_emi + f"_{hole_kappa}_{M.hole.n - l_from_kappa(hole_kappa)}.dat"
+        
+        #Remove the string after the last "/" in the phase that points to the matrix element file
+        #and replace it with the name of the phase data file
+        phase_path = os.path.sep.join(M.path.split(os.path.sep)[:-1]) + os.path.sep + phase_file_name
+        
+        raw_phase_data = np.loadtxt(phase_path)
+
+        return raw_phase_data
+
+
     @staticmethod
     def final_kappas(hole_kappa, only_reachable=True):
         """Returns a list of the kappa quantum numbers that are reachable with
@@ -271,19 +310,25 @@ class TwoPhotons:
             #These are the 'theoretically possible' channels.
             return [sig*(mag-2), -sig*(mag-1), sig*mag, -sig*(mag+1), sig*(mag+2)]
 
-        
-    def get_asymmetry_parameter(self, n, hole_kappa, path=os.path.dirname(os.path.abspath(__file__)) + os.path.sep + "asymmetry_coeffs"):
+
+    def get_asymmetry_parameter(self, n, hole_kappa, M1, M2, path=os.path.dirname(os.path.abspath(__file__)) + os.path.sep + "asymmetry_coeffs"):
         """This function returns the value of the
         n:th asymmetry parameter for a state defined by hole_kappa.
-        If you want to use some other formula for the coefficients than the default,
-        set path="path/to/folder/containing/coefficient/files". """
+        M1 and M2 contain the matrix elements and other phases of the wave function organized according to their final kappa liek so:
+        m = |hole_kappa|
+        s = sign(hole_kappa)
+        MX = [s(m-2), -s(m-1), sm, -s(m+1), s(m+2)]
+        The full signal looks something like S = M_abs M_abs^* + M_emi M_emi^* + M_abs M_emi^* + M_emi M_abs^*
+        Each term in this sum contains two matrix elements, these are the inputs labeled M1 and M2 in this function.
+        This function computes the contribution to the asymmetry parameter from ONE of these terms.
+        So if you want to compute the asymmetry parameter for the first cross term you would put M1 = M_abs and M2 = M_emi.
+        If you want to use some other values for the coefficients used in the calculation than the default,
+        set path = "path/to/folder/containing/coefficient/files". """
 
-        #Work out the kappa values of the five 'possible' channels.
-        kappa_fs = self.final_kappas(hole_kappa, only_reachable=False)
-
-        #Get the coupled matrix elements for each of those channels.
-        #M_k = M^abs_k + M^emi_k
-        M = [self.get_coupled_matrix_element(hole_kappa, "abs", kappa_f) + self.get_coupled_matrix_element(hole_kappa, "emi", kappa_f) for kappa_f in kappa_fs]
+        if len(M1[0]) == len(M2[0]) and len(M1[0]) == len(energy):
+            energy_length = len(energy)
+        else:
+            raise ValueError("the matrix elements contain a different number of points")
         
         #If the path to the coefficient files does not end in a path separator, add it.
         if path[-1] is not os.path.sep:
@@ -309,27 +354,35 @@ class TwoPhotons:
         #Read in the coefficients in front of all the different combinations of matrix elements in the numerator.
         numerator_coeffs = np.array(exported_mathematica_tensor_to_python_list(coeffs_file_contents[5]))
 
-        numerator = np.zeros(len(M[0]))
-        denominator = np.zeros(len(M[0]))
+        numerator = np.zeros(len(M1[0]), dtype="complex128")
+        denominator = np.zeros(len(M1[0]), dtype="complex128")
         for i in range(5):
             #compute the 'integrated cross section' denominator.
             #This is not necessarily the integrated cross section as various numerical
             #factors could have canceled in the Mathematica computation.
-            denominator += denominator_coeffs[i]*mag(M[i])
+            denominator += denominator_coeffs[i]*M1[i]*np.conj(M2[i])
 
             for j in range(i,5):
                 #Multiply each combination of matrix elements with its coefficient.
                 if i == j:
                     #If it's a diagonal term, we multiply the coefficient with the magnitue of the matrix element
-                    numerator += numerator_coeffs[i,j]*mag(M[i])
+                    numerator += numerator_coeffs[i,j]*M1[i]*np.conj(M2[i])
                 else:
                     #otherwise we multiply with the cross term between the two matrix elements
-                    numerator += numerator_coeffs[i,j]*cross(M[i],M[j])
+                    if abs_emi_or_cross == "abs" or abs_emi_or_cross == "emi":
+                        numerator += numerator_coeffs[i,j]*2*np.real(M1[i]*np.conj(M2[j]))
+                    else:
+                        numerator += numerator_coeffs[i,j]*M1[i]*np.conj(M2[j])
 
-        return numerator/denominator
+        parameter = numerator/denominator
+        if abs_emi_or_cross == "abs" or abs_emi_or_cross == "emi":
+            # When looking at the asymmetry parameter from the diagonal part
+            # the result is a real number
+            parameter = np.real(parameter)
+            
+        label = f"$\\beta_{n}^{{{abs_emi_or_cross}}}$ from ${l_to_str(l_from_kappa(hole_kappa)).upper()}_{{{str(int(2*j_from_kappa(hole_kappa)))}/2}}$"
 
-
-
+        return energy, parameter, label
 
 
 def parse_first_line_from_fortran_matrix_element_output_file(file, in_hole, ionisation_paths):
