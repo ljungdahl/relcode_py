@@ -311,7 +311,7 @@ class TwoPhotons:
             return [sig*(mag-2), -sig*(mag-1), sig*mag, -sig*(mag+1), sig*(mag+2)]
 
 
-    def get_asymmetry_parameter(self, n, hole_kappa, M1, M2, path=os.path.dirname(os.path.abspath(__file__)) + os.path.sep + "asymmetry_coeffs"):
+    def get_asymmetry_parameter(self, n, hole_kappa, M1, M2, half_of_cross_terms=False, path=os.path.dirname(os.path.abspath(__file__)) + os.path.sep + "asymmetry_coeffs"):
         """This function returns the value of the
         n:th asymmetry parameter for a state defined by hole_kappa.
         M1 and M2 contain the matrix elements and other phases of the wave function organized according to their final kappa liek so:
@@ -320,13 +320,14 @@ class TwoPhotons:
         MX = [s(m-2), -s(m-1), sm, -s(m+1), s(m+2)]
         The full signal looks something like S = M_abs M_abs^* + M_emi M_emi^* + M_abs M_emi^* + M_emi M_abs^*
         Each term in this sum contains two matrix elements, these are the inputs labeled M1 and M2 in this function.
-        This function computes the contribution to the asymmetry parameter from ONE of these terms.
-        So if you want to compute the asymmetry parameter for the first cross term you would put M1 = M_abs and M2 = M_emi.
+        This function computes the contribution to the asymmetry parameter from either the diagonal terms or the corss terms.
+        So if you want to compute the asymmetry parameter for the cross terms you would put M1 = M_abs and M2 = M_emi.
+        If you want to use only half the cross term (e.g. you want complex parameters for delay calculations) set half_of_cross_terms=True.
         If you want to use some other values for the coefficients used in the calculation than the default,
         set path = "path/to/folder/containing/coefficient/files". """
 
-        if len(M1[0]) == len(M2[0]) and len(M1[0]) == len(energy):
-            energy_length = len(energy)
+        if len(M1[0]) == len(M2[0]) and len(M1[0]) == len(self.omega_eV):
+            energy_length = len(self.omega_eV)
         else:
             raise ValueError("the matrix elements contain a different number of points")
         
@@ -365,24 +366,27 @@ class TwoPhotons:
             for j in range(i,5):
                 #Multiply each combination of matrix elements with its coefficient.
                 if i == j:
-                    #If it's a diagonal term, we multiply the coefficient with the magnitue of the matrix element
+                    #If it's a diagonal term we multiply the coefficient with the magnitue of the matrix element
                     numerator += numerator_coeffs[i,j]*M1[i]*np.conj(M2[i])
                 else:
                     #otherwise we multiply with the cross term between the two matrix elements
-                    if abs_emi_or_cross == "abs" or abs_emi_or_cross == "emi":
+                    if not half_of_cross_terms:
                         numerator += numerator_coeffs[i,j]*2*np.real(M1[i]*np.conj(M2[j]))
                     else:
+                        #unless the caller requested that the conjugate part of the cross term should be ignored
                         numerator += numerator_coeffs[i,j]*M1[i]*np.conj(M2[j])
 
         parameter = numerator/denominator
-        if abs_emi_or_cross == "abs" or abs_emi_or_cross == "emi":
+        if not half_of_cross_terms:
             # When looking at the asymmetry parameter from the diagonal part
-            # the result is a real number
+            #or the full cross part the result is a real number
             parameter = np.real(parameter)
             
-        label = f"$\\beta_{n}^{{{abs_emi_or_cross}}}$ from ${l_to_str(l_from_kappa(hole_kappa)).upper()}_{{{str(int(2*j_from_kappa(hole_kappa)))}/2}}$"
+        hole_n = self.matrix_elements_abs[hole_kappa].hole.n
 
-        return energy, parameter, label
+        label = f"$\\beta_{n}$ from ${hole_n}{l_to_str(l_from_kappa(hole_kappa))}_{{{str(int(2*j_from_kappa(hole_kappa)))}/2}}$"
+
+        return parameter, label
 
 
 def parse_first_line_from_fortran_matrix_element_output_file(file, in_hole, ionisation_paths):
