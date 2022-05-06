@@ -6,6 +6,7 @@
 import numpy as np
 from sympy import N as sympy_to_num
 from sympy.physics.wigner import wigner_3j
+from scipy.special import gamma
 import glob
 import json
 
@@ -180,6 +181,17 @@ def wigner3j_numerical2(j_hole, j_final, mjj):
 
 def wigner_eckart_phase(final_kappa, mj):
     return np.power(-1.0, (j_from_kappa(final_kappa)-mj))
+
+
+def coulomb_phase(l, electron_energy, Z):
+    """This is the definition of the phase of the Coulomb function
+    both the angular momentum part and the so-called Coulomb phase
+    electron energy should be entered in atomic units"""
+
+    x = Z/np.sqrt(2*electron_energy)
+    b = np.angle(gamma(l + 1 - 1j*x))
+
+    return -l*np.pi/2 + b
 
 # ==================================================================================================
 #
