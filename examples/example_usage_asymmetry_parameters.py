@@ -44,7 +44,7 @@ omega = two_photons.omega_eV  # We can also access it like two_photons.omega_Har
 # We need to give it the path to the output file, and if it's absorption or emission as "abs" or "emi".
 # Then we also give it the hole kappa (ie -2 for p3/2 here).
 # Last argument is the principal quantum number n, for the hole, mainly used for labels in plots.
-hole_kappa = kappa_from_l_and_j(1,3/2)
+hole_kappa = kappa_from_l_and_j(1, 3/2)
 two_photons.add_matrix_elements(path_abs, "abs", hole_kappa, 3)  # absorption
 two_photons.add_matrix_elements(path_emi, "emi", hole_kappa, 3)  # emission
 
@@ -52,24 +52,25 @@ two_photons.add_matrix_elements(path_emi, "emi", hole_kappa, 3)  # emission
 final_kappas = two_photons.final_kappas(hole_kappa, only_reachable = False)
 
 # Then we can retrieve the value of the coupled matrix elements like so
-M_abs = [two_photons.get_coupled_matrix_element(hole_kappa, "abs", kf) for kf in final_kappas]
-M_emi = [two_photons.get_coupled_matrix_element(hole_kappa, "emi", kf) for kf in final_kappas]
+M_abs_p3half = [two_photons.get_coupled_matrix_element(hole_kappa, "abs", kf) for kf in final_kappas]
+M_emi_p3half = [two_photons.get_coupled_matrix_element(hole_kappa, "emi", kf) for kf in final_kappas]
 
+# We compute the final energy of the photoelectron:
+omega -= binding_energy_p3half
 
-# The energy of the final electron is
-# omega - binding_energy + omega_IR for absorption
-# omega - binding_energy - omega_IR for emission
-# which means that we must match up the indices of the matrix elements from absorption and emission
-# so that the same index corresponds to the same final energy
-steps_per_IR_photon = 64
-electron_kinetic_energy = (omega - binding_energy_p3half)[steps_per_IR_photon:-steps_per_IR_photon]
-M_abs = M_abs[:-2*steps_per_IR_photon]
-M_emi = M_emi[2*steps_per_IR_photon:]
+# We multiply in the coulomb phase of the final photoelectron as well
+coul_phase = coulomb_phase(1, omega, Z)
+M_abs_p3half *= coul_phase
+M_emi_p3half *= coul_phase
 
-#We multiply in the coulomb phase of the final photoelectron as well
-coul_phase = coulomb_phase(1, electron_kinetic_energy, Z)
-M_abs *= coul_phase
-M_emi *= coul_phase
+# Now we can compute the asymmetry parameters!
+b2_p3half_abs, b2_p3half_abs_label = two_photons.get_asymmetry_parameter(2, hole_kappa, M_abs_p3half, M_abs_p3half)
+b4_p3half_abs, b4_p3half_abs_label = two_photons.get_asymmetry_parameter(4, hole_kappa, M_abs_p3half, M_abs_p3half)
 
-b2_p3half = two_photons.get_asymmetry_parameter(2, hole_kappa, M_abs, M_abs)
-b4_p3half = two_photons.get_asymmetry_parameter(4, hole_kappa, M_abs, M_abs)
+# And show them
+plt.plot(omega,b2_p3half_abs,label = b2_p3half_abs_label)
+plt.plot(omega,b4_p3half_abs,label = b4_p3half_abs_label)
+plt.legend()
+plt.xlabel("Photoelectron energy [eV]")
+plt.ylabel("Asymmetry parameter value")
+plt.show()
