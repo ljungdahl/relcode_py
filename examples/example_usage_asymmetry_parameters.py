@@ -64,8 +64,8 @@ M_abs_p3half *= coul_phase
 M_emi_p3half *= coul_phase
 
 # Now we can compute the asymmetry parameters!
-b2_p3half_abs, b2_p3half_abs_label = two_photons.get_asymmetry_parameter(2, hole_kappa, M_abs_p3half, M_abs_p3half)
-b4_p3half_abs, b4_p3half_abs_label = two_photons.get_asymmetry_parameter(4, hole_kappa, M_abs_p3half, M_abs_p3half)
+b2_p3half_abs, b2_p3half_abs_label = two_photons.get_asymmetry_parameter(2, hole_kappa, M_abs_p3half, M_abs_p3half, "abs")
+b4_p3half_abs, b4_p3half_abs_label = two_photons.get_asymmetry_parameter(4, hole_kappa, M_abs_p3half, M_abs_p3half, "abs")
 
 # And show them
 plt.plot(omega,b2_p3half_abs,label = b2_p3half_abs_label)
