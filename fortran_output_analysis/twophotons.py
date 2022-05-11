@@ -309,7 +309,7 @@ class TwoPhotons:
             return [sig*(mag-2), -sig*(mag-1), sig*mag, -sig*(mag+1), sig*(mag+2)]
 
 
-    def get_asymmetry_parameter(self, n, hole_kappa, M1, M2, abs_or_emi, half_of_cross_terms=False, path=os.path.dirname(os.path.abspath(__file__)) + os.path.sep + "asymmetry_coeffs"):
+    def get_asymmetry_parameter(self, n, hole_kappa, M1, M2, abs_emi_or_cross, half_of_cross_terms=False, path=os.path.dirname(os.path.abspath(__file__)) + os.path.sep + "asymmetry_coeffs", threshold=1e-10):
         """This function returns the value of the
         n:th asymmetry parameter for a state defined by hole_kappa.
         M1 and M2 contain the matrix elements and other phases of the wave function organized according to their final kappa liek so:
@@ -324,8 +324,8 @@ class TwoPhotons:
         If you want to use some other values for the coefficients used in the calculation than the default,
         set path = "path/to/folder/containing/coefficient/files". """
 
-        if abs_or_emi != "abs" and abs_or_emi != "emi":
-            raise ValueError(f"abs_or_emi can only be 'abs' or 'emi' not {abs_or_emi}")
+        if abs_emi_or_cross != "abs" and abs_emi_or_cross != "emi" and abs_emi_or_cross != "cross":
+            raise ValueError(f"abs_emi_or_cross can only be 'abs', 'emi' or 'cross' not {abs_emi_or_cross}")
 
         if len(M1[0]) == len(M2[0]) and len(M1[0]) == len(self.omega_eV):
             energy_length = len(self.omega_eV)
@@ -380,12 +380,14 @@ class TwoPhotons:
         parameter = numerator/denominator
         if not half_of_cross_terms:
             # When looking at the asymmetry parameter from the diagonal part
-            # or the full cross part the result is a real number
+            # or the full cross part, the result is a real number
+            assert(any(np.imag(parameter) < threshold))
             parameter = np.real(parameter)
             
         hole_n = self.matrix_elements_abs[hole_kappa].hole.n
-
-        label = f"$\\beta_{n}^{{{abs_or_emi}}}$ from ${hole_n}{l_to_str(l_from_kappa(hole_kappa))}_{{{str(int(2*j_from_kappa(hole_kappa)))}/2}}$"
+        if half_of_cross_terms:
+            abs_emi_or_cross = "complex cross"
+        label = f"$\\beta_{n}^{{{abs_emi_or_cross}}}$ from ${hole_n}{l_to_str(l_from_kappa(hole_kappa))}_{{{str(int(2*j_from_kappa(hole_kappa)))}/2}}$"
 
         return parameter, label
 
