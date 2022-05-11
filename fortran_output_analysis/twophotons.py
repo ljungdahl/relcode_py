@@ -322,7 +322,9 @@ class TwoPhotons:
         So if you want to compute the asymmetry parameter for the cross terms you would put M1 = M_abs and M2 = M_emi.
         If you want to use only half the cross term (e.g. you want complex parameters for delay calculations) set half_of_cross_terms=True.
         If you want to use some other values for the coefficients used in the calculation than the default,
-        set path = "path/to/folder/containing/coefficient/files". """
+        set path = "path/to/folder/containing/coefficient/files".
+        If the asymmetry parameter has an imaginary part larger than the input threshold when half_of_cross_term == False,
+        this will trigger an assertion error. This threshold can be modified with the threshold input"""
 
         if abs_emi_or_cross != "abs" and abs_emi_or_cross != "emi" and abs_emi_or_cross != "cross":
             raise ValueError(f"abs_emi_or_cross can only be 'abs', 'emi' or 'cross' not {abs_emi_or_cross}")
@@ -381,7 +383,8 @@ class TwoPhotons:
         if not half_of_cross_terms:
             # When looking at the asymmetry parameter from the diagonal part
             # or the full cross part, the result is a real number
-            assert(any(np.imag(parameter) < threshold))
+            values = parameter[~np.isnan(parameter)] #Filter out the nans first, as they mess up boolean expressions (nan is not itself).
+            assert all(np.abs(np.imag(values)) < threshold), "The asymmetry parameter had a non-zero imaginary part when it shouldn't. Check the input matrix elements or change the threshold for the allowed size of the imaginary part"
             parameter = np.real(parameter)
             
         hole_n = self.matrix_elements_abs[hole_kappa].hole.n
