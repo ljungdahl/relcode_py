@@ -250,7 +250,6 @@ class TwoPhotons:
             for (loop_hole_kappa, intermediate_kappa,loop_final_kappa) in fortranM.ionisation_paths.keys():
                 #Only use those that match the requested initial and final state
                 if loop_hole_kappa == hole_kappa and loop_final_kappa == final_kappa:
-                                        
                     # Get j values
                     hole_j = j_from_kappa(hole_kappa)
                     intermediate_j = j_from_kappa(intermediate_kappa)
@@ -262,7 +261,6 @@ class TwoPhotons:
                     #Add in the short range phase from the fortran program
                     matrix_element = fortranM.raw_data_real[:,col_index] + 1j*fortranM.raw_data_imag[:,col_index]
                     matrix_element *= np.exp(1j*phase_data[:,col_index])
-
                     coupled_matrix_element += phase(hole_j + final_j + K)*(2*K+1)*float(wigner_3j(1,1,K,0,0,0))*matrix_element*float(wigner_6j(1,1,K,hole_j,final_j,intermediate_j))
         
         return coupled_matrix_element
@@ -311,7 +309,7 @@ class TwoPhotons:
             return [sig*(mag-2), -sig*(mag-1), sig*mag, -sig*(mag+1), sig*(mag+2)]
 
 
-    def get_asymmetry_parameter(self, n, hole_kappa, M1, M2, half_of_cross_terms=False, path=os.path.dirname(os.path.abspath(__file__)) + os.path.sep + "asymmetry_coeffs"):
+    def get_asymmetry_parameter(self, n, hole_kappa, M1, M2, abs_or_emi, half_of_cross_terms=False, path=os.path.dirname(os.path.abspath(__file__)) + os.path.sep + "asymmetry_coeffs"):
         """This function returns the value of the
         n:th asymmetry parameter for a state defined by hole_kappa.
         M1 and M2 contain the matrix elements and other phases of the wave function organized according to their final kappa liek so:
@@ -325,6 +323,9 @@ class TwoPhotons:
         If you want to use only half the cross term (e.g. you want complex parameters for delay calculations) set half_of_cross_terms=True.
         If you want to use some other values for the coefficients used in the calculation than the default,
         set path = "path/to/folder/containing/coefficient/files". """
+
+        if abs_or_emi != "abs" and abs_or_emi != "emi":
+            raise ValueError(f"abs_or_emi can only be 'abs' or 'emi' not {abs_or_emi}")
 
         if len(M1[0]) == len(M2[0]) and len(M1[0]) == len(self.omega_eV):
             energy_length = len(self.omega_eV)
@@ -379,12 +380,12 @@ class TwoPhotons:
         parameter = numerator/denominator
         if not half_of_cross_terms:
             # When looking at the asymmetry parameter from the diagonal part
-            #or the full cross part the result is a real number
+            # or the full cross part the result is a real number
             parameter = np.real(parameter)
             
         hole_n = self.matrix_elements_abs[hole_kappa].hole.n
 
-        label = f"$\\beta_{n}$ from ${hole_n}{l_to_str(l_from_kappa(hole_kappa))}_{{{str(int(2*j_from_kappa(hole_kappa)))}/2}}$"
+        label = f"$\\beta_{n}^{{{abs_or_emi}}}$ from ${hole_n}{l_to_str(l_from_kappa(hole_kappa))}_{{{str(int(2*j_from_kappa(hole_kappa)))}/2}}$"
 
         return parameter, label
 
