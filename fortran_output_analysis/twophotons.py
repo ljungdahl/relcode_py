@@ -309,88 +309,87 @@ class TwoPhotons:
             return [sig*(mag-2), -sig*(mag-1), sig*mag, -sig*(mag+1), sig*(mag+2)]
 
 
-    def get_asymmetry_parameter(self, n, hole_kappa, M1, M2, abs_emi_or_cross, half_of_cross_terms=False, path=os.path.dirname(os.path.abspath(__file__)) + os.path.sep + "asymmetry_coeffs", threshold=1e-10):
-        """This function returns the value of the
-        n:th asymmetry parameter for a state defined by hole_kappa.
-        M1 and M2 contain the matrix elements and other phases of the wave function organized according to their final kappa liek so:
-        m = |hole_kappa|
-        s = sign(hole_kappa)
-        MX = [s(m-2), -s(m-1), sm, -s(m+1), s(m+2)]
-        The full signal looks something like S = M_abs M_abs^* + M_emi M_emi^* + M_abs M_emi^* + M_emi M_abs^*
-        Each term in this sum contains two matrix elements, these are the inputs labeled M1 and M2 in this function.
-        This function computes the contribution to the asymmetry parameter from either the diagonal terms or the corss terms.
-        So if you want to compute the asymmetry parameter for the cross terms you would put M1 = M_abs and M2 = M_emi.
-        If you want to use only half the cross term (e.g. you want complex parameters for delay calculations) set half_of_cross_terms=True.
-        If you want to use some other values for the coefficients used in the calculation than the default,
-        set path = "path/to/folder/containing/coefficient/files".
-        If the asymmetry parameter has an imaginary part larger than the input threshold when half_of_cross_term == False,
-        this will trigger an assertion error. This threshold can be modified with the threshold input"""
+def get_asymmetry_parameter(n, hole_kappa, M1, M2, abs_emi_or_cross, half_of_cross_terms=False, path=os.path.dirname(os.path.abspath(__file__)) + os.path.sep + "asymmetry_coeffs", threshold=1e-10):
+    """This function returns the value of the
+    n:th asymmetry parameter for a state defined by hole_kappa.
+    M1 and M2 contain the matrix elements and other phases of the wave function organized according to their final kappa liek so:
+    m = |hole_kappa|
+    s = sign(hole_kappa)
+    MX = [s(m-2), -s(m-1), sm, -s(m+1), s(m+2)]
+    The full signal looks something like S = M_abs M_abs^* + M_emi M_emi^* + M_abs M_emi^* + M_emi M_abs^*
+    Each term in this sum contains two matrix elements, these are the inputs labeled M1 and M2 in this function.
+    This function computes the contribution to the asymmetry parameter from either the diagonal terms or the corss terms.
+    So if you want to compute the asymmetry parameter for the cross terms you would put M1 = M_abs and M2 = M_emi.
+    If you want to use only half the cross term (e.g. you want complex parameters for delay calculations) set half_of_cross_terms=True.
+    If you want to use some other values for the coefficients used in the calculation than the default,
+    set path = "path/to/folder/containing/coefficient/files".
+    If the asymmetry parameter has an imaginary part larger than the input threshold when half_of_cross_term == False,
+    this will trigger an assertion error. This threshold can be modified with the threshold input"""
 
-        if abs_emi_or_cross != "abs" and abs_emi_or_cross != "emi" and abs_emi_or_cross != "cross":
-            raise ValueError(f"abs_emi_or_cross can only be 'abs', 'emi' or 'cross' not {abs_emi_or_cross}")
+    if abs_emi_or_cross != "abs" and abs_emi_or_cross != "emi" and abs_emi_or_cross != "cross":
+        raise ValueError(f"abs_emi_or_cross can only be 'abs', 'emi' or 'cross' not {abs_emi_or_cross}")
 
-        if len(M1[0]) != len(M2[0]):
-            raise ValueError("the matrix elements contain a different number of points")
-        
-        #If the path to the coefficient files does not end in a path separator, add it.
-        if path[-1] is not os.path.sep:
-            path = path + os.path.sep
+    if len(M1[0]) != len(M2[0]):
+        raise ValueError("the matrix elements contain a different number of points")
+    
+    #If the path to the coefficient files does not end in a path separator, add it.
+    if path[-1] is not os.path.sep:
+        path = path + os.path.sep
 
-        #Try opening the needed file.
-        try:
-            with open(path + f"asymmetry_coeffs_{n}_{hole_kappa}.txt","r") as coeffs_file:
-                coeffs_file_contents = coeffs_file.readlines()
-        except OSError as e:
-            print(e)
-            raise NotImplementedError("the given combination of initial kappa and n is not yet implemented, or the file containing the coefficients could not be found")
+    #Try opening the needed file.
+    try:
+        with open(path + f"asymmetry_coeffs_{n}_{hole_kappa}.txt","r") as coeffs_file:
+            coeffs_file_contents = coeffs_file.readlines()
+    except OSError as e:
+        print(e)
+        raise NotImplementedError("the given combination of initial kappa and n is not yet implemented, or the file containing the coefficients could not be found")
 
-        #Read in the n and hole_kappa values found in the file.
-        read_n, read_hole_kappa = exported_mathematica_tensor_to_python_list(coeffs_file_contents[1])
-        #If they do not match the ones given to the function, something has gone wrong.
-        if read_n != n or read_hole_kappa != hole_kappa:
-            raise ValueError("the n or hole_kappa in the coefficients file was not the same as those given to the function")
+    #Read in the n and hole_kappa values found in the file.
+    read_n, read_hole_kappa = exported_mathematica_tensor_to_python_list(coeffs_file_contents[1])
+    #If they do not match the ones given to the function, something has gone wrong.
+    if read_n != n or read_hole_kappa != hole_kappa:
+        raise ValueError("the n or hole_kappa in the coefficients file was not the same as those given to the function")
 
-        #Read in the coefficients in front of the absolute values in the denominator.
-        denominator_coeffs = exported_mathematica_tensor_to_python_list(coeffs_file_contents[3])
+    #Read in the coefficients in front of the absolute values in the denominator.
+    denominator_coeffs = exported_mathematica_tensor_to_python_list(coeffs_file_contents[3])
 
-        #Read in the coefficients in front of all the different combinations of matrix elements in the numerator.
-        numerator_coeffs = np.array(exported_mathematica_tensor_to_python_list(coeffs_file_contents[5]))
+    #Read in the coefficients in front of all the different combinations of matrix elements in the numerator.
+    numerator_coeffs = np.array(exported_mathematica_tensor_to_python_list(coeffs_file_contents[5]))
 
-        numerator = np.zeros(len(M1[0]), dtype="complex128")
-        denominator = np.zeros(len(M1[0]), dtype="complex128")
-        for i in range(5):
-            #compute the 'integrated cross section' denominator.
-            #This is not necessarily the integrated cross section as various numerical
-            #factors could have canceled in the Mathematica computation.
-            denominator += denominator_coeffs[i]*M1[i]*np.conj(M2[i])
+    numerator = np.zeros(len(M1[0]), dtype="complex128")
+    denominator = np.zeros(len(M1[0]), dtype="complex128")
+    for i in range(5):
+        #compute the 'integrated cross section' denominator.
+        #This is not necessarily the integrated cross section as various numerical
+        #factors could have canceled in the Mathematica computation.
+        denominator += denominator_coeffs[i]*M1[i]*np.conj(M2[i])
 
-            for j in range(i,5):
-                #Multiply each combination of matrix elements with its coefficient.
-                if i == j:
-                    #If it's a diagonal term we multiply the coefficient with the magnitue of the matrix element
-                    numerator += numerator_coeffs[i,j]*M1[i]*np.conj(M2[i])
+        for j in range(i,5):
+            #Multiply each combination of matrix elements with its coefficient.
+            if i == j:
+                #If it's a diagonal term we multiply the coefficient with the magnitue of the matrix element
+                numerator += numerator_coeffs[i,j]*M1[i]*np.conj(M2[i])
+            else:
+                #otherwise we multiply with the cross term between the two matrix elements
+                if not half_of_cross_terms:
+                    numerator += numerator_coeffs[i,j]*2*np.real(M1[i]*np.conj(M2[j]))
                 else:
-                    #otherwise we multiply with the cross term between the two matrix elements
-                    if not half_of_cross_terms:
-                        numerator += numerator_coeffs[i,j]*2*np.real(M1[i]*np.conj(M2[j]))
-                    else:
-                        #unless the caller requested that the conjugate part of the cross term should be ignored
-                        numerator += numerator_coeffs[i,j]*M1[i]*np.conj(M2[j])
+                    #unless the caller requested that the conjugate part of the cross term should be ignored
+                    numerator += numerator_coeffs[i,j]*M1[i]*np.conj(M2[j])
 
-        parameter = numerator/denominator
-        if not half_of_cross_terms:
-            # When looking at the asymmetry parameter from the diagonal part
-            # or the full cross part, the result is a real number
-            values = parameter[~np.isnan(parameter)] #Filter out the nans first, as they mess up boolean expressions (nan is not itself).
-            assert all(np.abs(np.imag(values)) < threshold), "The asymmetry parameter had a non-zero imaginary part when it shouldn't. Check the input matrix elements or change the threshold for the allowed size of the imaginary part"
-            parameter = np.real(parameter)
-            
-        hole_n = self.matrix_elements_abs[hole_kappa].hole.n
-        if half_of_cross_terms:
-            abs_emi_or_cross = "complex"
-        label = f"$\\beta_{n}^{{{abs_emi_or_cross}}}$"#" from ${hole_n}{l_to_str(l_from_kappa(hole_kappa))}_{{{str(int(2*j_from_kappa(hole_kappa)))}/2}}$"
+    parameter = numerator/denominator
+    if not half_of_cross_terms:
+        # When looking at the asymmetry parameter from the diagonal part
+        # or the full cross part, the result is a real number
+        values = parameter[~np.isnan(parameter)] #Filter out the nans first, as they mess up boolean expressions (nan is not itself).
+        assert all(np.abs(np.imag(values)) < threshold), "The asymmetry parameter had a non-zero imaginary part when it shouldn't. Check the input matrix elements or change the threshold for the allowed size of the imaginary part"
+        parameter = np.real(parameter)
+        
+    if half_of_cross_terms:
+        abs_emi_or_cross = "complex"
+    label = f"$\\beta_{n}^{{{abs_emi_or_cross}}}$"
 
-        return parameter, label
+    return parameter, label
 
 
 def parse_first_line_from_fortran_matrix_element_output_file(file, in_hole, ionisation_paths):
