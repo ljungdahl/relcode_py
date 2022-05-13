@@ -329,9 +329,7 @@ class TwoPhotons:
         if abs_emi_or_cross != "abs" and abs_emi_or_cross != "emi" and abs_emi_or_cross != "cross":
             raise ValueError(f"abs_emi_or_cross can only be 'abs', 'emi' or 'cross' not {abs_emi_or_cross}")
 
-        if len(M1[0]) == len(M2[0]) and len(M1[0]) == len(self.omega_eV):
-            energy_length = len(self.omega_eV)
-        else:
+        if len(M1[0]) != len(M2[0]):
             raise ValueError("the matrix elements contain a different number of points")
         
         #If the path to the coefficient files does not end in a path separator, add it.
@@ -389,8 +387,8 @@ class TwoPhotons:
             
         hole_n = self.matrix_elements_abs[hole_kappa].hole.n
         if half_of_cross_terms:
-            abs_emi_or_cross = "complex cross"
-        label = f"$\\beta_{n}^{{{abs_emi_or_cross}}}$ from ${hole_n}{l_to_str(l_from_kappa(hole_kappa))}_{{{str(int(2*j_from_kappa(hole_kappa)))}/2}}$"
+            abs_emi_or_cross = "complex"
+        label = f"$\\beta_{n}^{{{abs_emi_or_cross}}}$"#" from ${hole_n}{l_to_str(l_from_kappa(hole_kappa))}_{{{str(int(2*j_from_kappa(hole_kappa)))}/2}}$"
 
         return parameter, label
 
