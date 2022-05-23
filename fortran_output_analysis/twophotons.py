@@ -288,25 +288,62 @@ class TwoPhotons:
 
         return raw_phase_data
 
+def final_kappas(hole_kappa, only_reachable=True):
+    """Returns a list of the kappa quantum numbers that are reachable with
+    two photons from the state with the given initial kappa
+    If only_reachable is set to true the function will only return kappa
+    values that can be reached from the initial kappa, otherwise it will
+    always return the five 'theoretically possible' channels"""
 
-    @staticmethod
-    def final_kappas(hole_kappa, only_reachable=True):
-        """Returns a list of the kappa quantum numbers that are reachable with
-        two photons from the state with the given initial kappa
-        If only_reachable is set to true the function will only return kappa
-        values that can be reached from the initial kappa, otherwise it will
-        always return the five 'theoretically possible' channels"""
+    sig = np.sign(hole_kappa)
+    mag = np.abs(hole_kappa)
 
-        sig = np.sign(hole_kappa)
-        mag = np.abs(hole_kappa)
+    if mag == 1 and only_reachable:
+        return [sig*mag, -sig*(mag+1), sig*(mag+2)]
+    elif mag == 2 and only_reachable:
+        return [-sig*(mag-1), sig*mag, -sig*(mag+1), sig*(mag+2)]
+    else:
+        #These are the 'theoretically possible' channels.
+        return [sig*(mag-2), -sig*(mag-1), sig*mag, -sig*(mag+1), sig*(mag+2)]
 
-        if mag == 1 and only_reachable:
-            return [sig*mag, -sig*(mag+1), sig*(mag+2)]
-        elif mag == 2 and only_reachable:
-            return [-sig*(mag-1), sig*mag, -sig*(mag+1), sig*(mag+2)]
-        else:
-            #These are the 'theoretically possible' channels.
-            return [sig*(mag-2), -sig*(mag-1), sig*mag, -sig*(mag+1), sig*(mag+2)]
+
+def get_integrated_cross_section(hole_kappa, M1, M2, abs_emi_or_cross, path=os.path.dirname(os.path.abspath(__file__)) + os.path.sep + "asymmetry_coeffs", threshold=1e-9):
+    """This function returns the integrated cross section for a photoelectron"""
+    
+    if abs_emi_or_cross != "abs" and abs_emi_or_cross != "emi" and abs_emi_or_cross != "cross":
+        raise ValueError(f"abs_emi_or_cross can only be 'abs', 'emi', or 'cross', not {abs_emi_or_cross}")
+
+    if len(M1[0]) != len(M2[0]):
+        raise ValueError("the length of the input matrix elements must be the same")
+
+    length = len(M1[0])
+
+    if path[-1] is not os.path.sep:
+        path = path + os.path.sep
+
+    try:
+        with open(path + f"integrated_cross_{hole_kappa}.txt","r") as coeffs_file:
+            coeffs_file_contents = coeffs_file.readlines()
+    except OSError as e:
+        raise NotImplementedError("the given initial kappa is not yet implemented, or the file containing the coefficients could not be found")
+
+    coeffs = exported_mathematica_tensor_to_python_list(coeffs_file_contents[4])
+
+    integrated_cross_section = np.zeros(length, dtype="complex128")
+    for i in range(5):
+        integrated_cross_section += coeffs[i]*M1[i]*np.conj(M2[i])
+
+    if abs_emi_or_cross == "cross":
+        abs_emi_or_cross = "complex"
+    else:
+        #If we are looking at the diagonal terms the results are real
+        values = integrated_cross_section[~np.isnan(integrated_cross_section)] #Filter out the nans first, as they mess up boolean expressions (nan is not itself).
+        assert all(np.abs(np.imag(values)) < threshold), "The integrated cross section had a non-zero imaginary part when it shouldn't. Check the input matrix elements or change the threshold for the allowed size of the imaginary part"
+        integrated_cross_section = np.real(integrated_cross_section)
+
+    label = f"$\\sigma_0^{{{abs_emi_or_cross}}}$ from $\\kappa_0=${hole_kappa}"
+
+    return integrated_cross_section, label
 
 
 def get_asymmetry_parameter(n, hole_kappa, M1, M2, abs_emi_or_cross, half_of_cross_terms=False, path=os.path.dirname(os.path.abspath(__file__)) + os.path.sep + "asymmetry_coeffs", threshold=1e-10):
@@ -390,7 +427,6 @@ def get_asymmetry_parameter(n, hole_kappa, M1, M2, abs_emi_or_cross, half_of_cro
     label = f"$\\beta_{n}^{{{abs_emi_or_cross}}}$"
 
     return parameter, label
-
 
 def parse_first_line_from_fortran_matrix_element_output_file(file, in_hole, ionisation_paths):
     # The first line contains information about what is in each column of the output file.
