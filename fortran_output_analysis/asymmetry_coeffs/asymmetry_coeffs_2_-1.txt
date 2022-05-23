@@ -4,3 +4,8 @@
 {0, 0, 5, 1, 1}
 #coefficients 5x5 table, rows and column index refer to the same kappa as the column index for the integrated cross section
 {{0, 0, 0, 0, 0}, {0, 0, 0, 0, 0}, {0, 0, 0, 3.162277660168379, 3.872983346207417}, {0, 0, 3.162277660168379, 1.000000000000000, 0.3499271061118826}, {0, 0, 3.872983346207417, 0.3499271061118826, 1.142857142857143}}
+#The one photon case follows. The final kappas are sorted as {s(m-1),-sm,s(m+1)} and the coefficients then end up in a 3x3 table instead.
+#Denominator coefficients:
+{0.0, 1.0, 1.0}
+#Numerator coefficients:
+{{0.0,0.0,0.0},{0.0, 0.0, -1.414213562373095},{0.0, -1.414213562373095, 1.0}}
