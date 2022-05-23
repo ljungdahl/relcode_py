@@ -9,6 +9,7 @@ from sympy.physics.wigner import wigner_3j
 from scipy.special import gamma
 import glob
 import json
+from scipy.interpolate import InterpolatedUnivariateSpline as interp
 
 # ==================================================================================================
 #
@@ -109,6 +110,14 @@ def j_from_kappa(kappa):
         return l + 0.5
     else:
         return l - 0.5
+
+
+def interpolated(x, y, number_of_datapoints):
+    """Returns the new x and y values of the 1D-function described by the interpolation
+    of the input x and y data points. Interpolates the function values, y, in the domain, x, to
+    the given number of datapoints"""
+    new_x = np.linspace(x[0], x[-1], number_of_datapoints)
+    return new_x, interp(x, y)(new_x)
 
 
 def j_from_kappa_int(kappa):
