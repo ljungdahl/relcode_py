@@ -307,8 +307,8 @@ def final_kappas(hole_kappa, only_reachable=True):
         return [sig*(mag-2), -sig*(mag-1), sig*mag, -sig*(mag+1), sig*(mag+2)]
 
 
-def get_integrated_cross_section(hole_kappa, M1, M2, abs_emi_or_cross, path=os.path.dirname(os.path.abspath(__file__)) + os.path.sep + "asymmetry_coeffs", threshold=1e-9):
-    """This function returns the integrated cross section for a photoelectron"""
+def get_integrated_two_photon_cross_section(hole_kappa, M1, M2, abs_emi_or_cross, path=os.path.dirname(os.path.abspath(__file__)) + os.path.sep + "asymmetry_coeffs", threshold=1e-9):
+    """This function returns the integrated cross section for a photoelectron that has absorbed two photons"""
     
     if abs_emi_or_cross != "abs" and abs_emi_or_cross != "emi" and abs_emi_or_cross != "cross":
         raise ValueError(f"abs_emi_or_cross can only be 'abs', 'emi', or 'cross', not {abs_emi_or_cross}")
@@ -346,7 +346,7 @@ def get_integrated_cross_section(hole_kappa, M1, M2, abs_emi_or_cross, path=os.p
     return integrated_cross_section, label
 
 
-def get_asymmetry_parameter(n, hole_kappa, M1, M2, abs_emi_or_cross, half_of_cross_terms=False, path=os.path.dirname(os.path.abspath(__file__)) + os.path.sep + "asymmetry_coeffs", threshold=1e-10):
+def get_two_photon_asymmetry_parameter(n, hole_kappa, M1, M2, abs_emi_or_cross, half_of_cross_terms=False, path=os.path.dirname(os.path.abspath(__file__)) + os.path.sep + "asymmetry_coeffs", threshold=1e-10):
     """This function returns the value of the
     n:th asymmetry parameter for a state defined by hole_kappa.
     M1 and M2 contain the matrix elements and other phases of the wave function organized according to their final kappa liek so:
