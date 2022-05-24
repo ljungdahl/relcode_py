@@ -2,8 +2,8 @@ import numpy as np
 from fortran_output_analysis.constants_and_parameters import g_eV_per_Hartree
 from fortran_output_analysis.common_utility import l_from_kappa, l_to_str, \
     wigner_eckart_phase, wigner3j_numerical2, j_from_kappa, \
-    j_from_kappa_int, IonHole, load_raw_data, convert_rate_to_cross_section
-
+    j_from_kappa_int, IonHole, load_raw_data, convert_rate_to_cross_section, exported_mathematica_tensor_to_python_list
+import os
 
 # ==================================================================================================
 #
@@ -26,8 +26,18 @@ class OnePhoton:
         self.channels = {}
         self.num_channels = 0
 
-    def add_channels_for_hole(self, path_to_pcur_all, hole_kappa, n_qn):
-        self.channels[hole_kappa] = Channels(path_to_pcur_all, hole_kappa, n_qn)
+    def add_channels_for_hole(self, path_to_pcur_all, hole_kappa, n_qn, path_to_amp_all = None, path_to_phaseF_all = None, path_to_phaseG_all = None):
+        #If the paths to the amplitude and phase files were not specified we assume
+        #that they are in the same directory as the pcur file.
+        pert_path = os.path.sep.join(path_to_pcur_all.split(os.path.sep)[:-1]) + os.path.sep
+        if path_to_amp_all is None:
+            path_to_amp_all = pert_path + "amp_all.dat"
+        if path_to_phaseF_all is None:
+            path_to_phaseF_all = pert_path + "phaseF_all.dat"
+        if path_to_phaseG_all is None:
+            path_to_phaseG_all = pert_path + "phaseG_all.dat"
+        
+        self.channels[hole_kappa] = Channels(path_to_pcur_all, path_to_amp_all, path_to_phaseF_all, path_to_phaseG_all, hole_kappa, n_qn)
         self.num_channels += 1
 
     def get_channel_labels_for_hole(self, hole_kappa):
@@ -80,32 +90,64 @@ class OnePhoton:
 
         return total_cs
 
-
+    def get_matrix_element_for_channel(self, hole_kappa, final_kappa):
+        """Returns the value of the matrix element after one photon as amp*[e^(i*phase_of_F), e^(i*phase_of_G)]."""
+        channel = self.channels[hole_kappa]
+        final_state = channel.final_states[final_kappa]
+        #We assume that the data is sorted the same in amp_all and phaseF_all as in pcur_all
+        #this is true at time of writing (2022-05-23).
+        column_index = final_state.pcur_column_index
+        return channel.raw_amp_data[:,column_index]*[np.exp(1j*channel.raw_phaseF_data[:,column_index]), np.exp(1j*channel.raw_phaseG_data[:,column_index])]
 
 
 # ==================================================================================================
 #
 # ==================================================================================================
+
+def final_kappas(hole_kappa, only_reachable=True):
+    """Returns the possible final kappas that can be reached
+    with one photon from an initial state with the given kappa.
+    If only_reachable is False, this function will always return
+    a list of three elements, even if one of them is 0."""
+    mag = np.abs(hole_kappa)
+    sig = np.sign(hole_kappa)
+    
+    kappas = [sig*(mag-1), -sig*mag, sig*(mag+1)]
+    
+    if only_reachable:
+        #Filter out any occurence of final kappa = 0
+        kappas = [kappa for kappa in kappas if kappa != 0]
+
+    return kappas
+
+
 class Channels:
-    def __init__(self, path_to_pcur, hole_kappa, n_qn):
+    def __init__(self, path_to_pcur, path_to_amp_all, path_to_phaseF_all, path_to_phaseG_all, hole_kappa, n_qn):
         self.path_to_pcur = path_to_pcur
         self.hole = IonHole(hole_kappa, n_qn)
         self.final_states = {}
         self.raw_data = load_raw_data(path_to_pcur)
+        self.raw_amp_data = load_raw_data(path_to_amp_all)
+        self.raw_phaseF_data = load_raw_data(path_to_phaseF_all)
+        self.raw_phaseG_data = load_raw_data(path_to_phaseG_all)
         self.add_final_states()
 
     def add_final_states(self):
         kappa_hole = self.hole.kappa
         # One can convince oneself that the following is true for a given hole_kappa.
-        possible_final_kappas = np.array([-kappa_hole, kappa_hole+1, -(-kappa_hole+1)])
+#       possible_final_kappas = np.array([-kappa_hole, kappa_hole+1, -(-kappa_hole+1)])
         # It is possible that one of the final kappas are zero, so we need to handle this.
         # NOTE(anton): The pcur-files have three columns, one for each possible final kappa.
         # If there is no possibility for one of them the column is zero, and I
         # think the convention is that the zero column is the left-most (lowest index) then.
         # So if the kappas are sorted by ascending absolute value we should get this, since
         # if kappa = 0 the channel is closed.
-        sort_kappas_idx = np.argsort(np.abs(possible_final_kappas))
-        possible_final_kappas = possible_final_kappas[sort_kappas_idx]
+#       sort_kappas_idx = np.argsort(np.abs(possible_final_kappas))
+#       possible_final_kappas = possible_final_kappas[sort_kappas_idx]
+        
+        #This code should reproduce the previous implementation
+        possible_final_kappas = final_kappas(kappa_hole, only_reachable=False)
+
         # This is for getting the data from the pcur files. The first column is the photon energy.
         pcur_column_index = 1
         for kappa in possible_final_kappas:
@@ -207,3 +249,115 @@ class ChannelsOld:
                 tot_cs += part_cs
 
         return tot_cs
+
+def get_integrated_one_photon_cross_section(hole_kappa, M1, M2, abs_emi_or_cross, path=os.path.dirname(os.path.abspath(__file__)) + os.path.sep + "asymmetry_coeffs", threshold=1e-10):
+    """This function returns the value of the integrated cross section for a photoelectron that has absorbed one photon"""
+    
+    if abs_emi_or_cross != "abs" and abs_emi_or_cross != "emi" and abs_emi_or_cross != "cross":
+        raise ValueError(f"abs_emi_or_cross can only be 'abs', 'emi', or 'cross', not {abs_emi_or_cross}")
+
+    if len(M1[0]) != len(M2[0]):
+        raise ValueError("the length of the input matrix elements must be the same")
+
+    length = len(M1[0])
+
+    if path[-1] is not os.path.sep:
+        path = path + os.path.sep
+
+    try:
+        with open(path + f"integrated_cross_{hole_kappa}.txt","r") as coeffs_file:
+            coeffs_file_contents = coeffs_file.readlines()
+    except OSError as e:
+        raise NotImplementedError("the given initial kappa is not yet implemented, or the file containing the coefficients could not be found")
+
+    coeffs = exported_mathematica_tensor_to_python_list(coeffs_file_contents[7])
+
+    integrated_cross_section = np.zeros(length, dtype="complex128")
+    for i in range(3):
+        integrated_cross_section += coeffs[i]*M1[i]*np.conj(M2[i])
+
+    if abs_emi_or_cross == "cross":
+        abs_emi_or_cross = "complex"
+    else:
+        #If we are looking at the diagonal terms the results are real
+        values = integrated_cross_section[~np.isnan(integrated_cross_section)] #Filter out the nans first, as they mess up boolean expressions (nan is not itself).
+        assert all(np.abs(np.imag(values)) < threshold), "The integrated cross section had a non-zero imaginary part when it shouldn't. Check the input matrix elements or change the threshold for the allowed size of the imaginary part"
+        integrated_cross_section = np.real(integrated_cross_section)
+
+    label = f"$\\sigma_0^{{{abs_emi_or_cross}}}$ from $\\kappa_0=${hole_kappa}"
+
+    return integrated_cross_section, label
+
+
+def get_one_photon_asymmetry_parameter(hole_kappa, M1, M2, abs_emi_or_cross, half_of_cross_terms=False,path=os.path.dirname(os.path.abspath(__file__)) + os.path.sep + "asymmetry_coeffs", threshold=1e-10):
+    """This function returns the value of the asymmetry parameter for a state defined by hole_kappa in the one photon case.
+    M1 and M2 contains the matrix elements and other phases of the wave function organized according to their final kappa like so:
+    m = |hole_kappa|
+    s = sign(hole_kappa)
+    M = [s(m-1), -sm, s(m+1)]
+    The formula for the asymmetry parameter has the form beta_2 = coeff(k1,k1)*M1(k1)*M2(k1)^* + coeff(k1,k2)*M1(k1)*M2(k2)^*
+    + coeff(k1,k3)*M1(k1)*M2(k3)^* + coeff(k2,k1)*M1(k2)*M2(k1)^* + ... / (coeff(k1)M1(k1)M2(k2)^* + coeff(k2)M1(k2)M2(k2)^* + coeff(k3)M1(k3)M2(k3)^*)
+    If you only want to include the first occurence of each of the cross terms set half_of_cross_terms to True.
+    The two different input matrix elements correspond to the one photon matrix elements at different energies,
+    for example two absorption and emission branches of a RABBIT experiment.
+    If you want to use some other values for the coefficients used in the calculation than the default,
+    set path = "path/to/folder/containing/coefficient/files".
+    If the asymmetry parameter has an imaginary part larger than the input threshold when half_of_cross_term == False,
+    this will trigger an assertion error. This threshold can be modified with the threshold input"""
+
+    if abs_emi_or_cross != "abs" and abs_emi_or_cross != "emi" and abs_emi_or_cross != "cross":
+        raise ValueError(f"abs_emi_or_cross can only be 'abs', 'emi', or 'cross' not {abs_emi_or_cross}")
+
+    if path[-1] is not os.path.sep:
+        path = path + os.path.sep
+
+    data_size = 0
+    if len(M1[0]) != len(M2[0]):
+        raise ValueError(f"the length of the two matrix elements must be the same, but they are {len(M1[0])} and {len(M2[0])}")
+    else:
+        data_size = len(M1[0])
+
+    #Try opening the needed file.
+    try:
+        with open(path + f"asymmetry_coeffs_2_{hole_kappa}.txt","r") as coeffs_file:
+            coeffs_file_contents = coeffs_file.readlines()
+    except OSError as e:
+        print(e)
+        raise NotImplementedError("the formula for that initial kappa is not yet implemented, or the file containing the coefficients could not be found")
+
+    #Read in the n and hole_kappa values found in the file.
+    read_n, read_hole_kappa = exported_mathematica_tensor_to_python_list(coeffs_file_contents[1])
+    #If they do not match the ones given to the function, something has gone wrong.
+    if read_n != 2 or read_hole_kappa != hole_kappa:
+        raise ValueError("the hole_kappa in the coefficients file was not the same as that given to the function")
+
+    #Read in the coefficients in front of the absolute values in the denominator.
+    denominator_coeffs = exported_mathematica_tensor_to_python_list(coeffs_file_contents[8])
+
+    #Read in the coefficients in front of all the different combinations of matrix elements in the numerator.
+    numerator_coeffs = np.array(exported_mathematica_tensor_to_python_list(coeffs_file_contents[10]))
+
+    numerator = np.zeros(data_size, dtype="complex128")
+    denominator = np.zeros(data_size, dtype="complex128")
+    for i in range(3):
+        denominator += denominator_coeffs[i]*M1[i]*np.conj(M2[i])#np.abs(M[i])**2
+        for j in range(i, 3):
+            if not half_of_cross_terms:
+                numerator += numerator_coeffs[i,j]*2*np.real(M1[i]*np.conj(M2[j]))
+            else:
+                numerator += numerator_coeffs[i,j]*M1[i]*np.conj(M2[j])
+
+    parameter = numerator/denominator
+
+    if not half_of_cross_terms:
+        # When looking at the asymmetry parameter from the diagonal part
+        # or the full cross part, the result is a real number
+        values = parameter[~np.isnan(parameter)] #Filter out the nans first, as they mess up boolean expressions (nan is not itself).
+        assert all(np.abs(np.imag(values)) < threshold), "The asymmetry parameter had a non-zero imaginary part when it shouldn't. Check the input matrix elements or change the threshold for the allowed size of the imaginary part"
+        parameter = np.real(parameter)
+
+    if half_of_cross_terms:
+        abs_emi_or_cross = "complex"
+    label = f"$\\beta_2^{{{abs_emi_or_cross}}}$"
+
+    return parameter, label
