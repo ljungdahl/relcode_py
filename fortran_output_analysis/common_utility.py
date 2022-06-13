@@ -7,6 +7,7 @@ import numpy as np
 from sympy import N as sympy_to_num
 from sympy.physics.wigner import wigner_3j
 from scipy.special import gamma
+from scipy.constants import fine_structure
 import glob
 import json
 from scipy.interpolate import InterpolatedUnivariateSpline as interp
@@ -192,15 +193,37 @@ def wigner_eckart_phase(final_kappa, mj):
     return np.power(-1.0, (j_from_kappa(final_kappa)-mj))
 
 
-def coulomb_phase(l, electron_energy, Z):
-    """This is the definition of the phase of the Coulomb function
-    both the angular momentum part and the so-called Coulomb phase
-    electron energy should be entered in atomic units"""
+def coulomb_phase(kappa, energy, Z, use_relativistic_wavenumber=True):
+    """This is the definition of the phase of the Coulomb function,
+    both the angular momentum part and the so-called Coulomb phase.
+    Electron energy should be given in atomic units.
+    This formula uses the relativistic version of the wavenumber by default.
+    If you want to use the nonrelativistic version, pass in
+    use_relativistic_wavenumber=False."""
 
-    x = Z/np.sqrt(2*electron_energy)
+    if kappa == 0:
+        # A kappa value of zero is unphysical. However we will call this function with zero kappa
+        # values often as part of the analysis, so we just return a phase of zero for that case
+        return np.zeros(len(energy))
+
+    l = l_from_kappa(kappa)
+
+    if use_relativistic_wavenumber:
+        k = wavenumber(energy)
+    else:
+        k = np.sqrt(2*energy)
+
+    x = Z/k
     b = np.angle(gamma(l + 1 - 1j*x))
-
+    
     return -l*np.pi/2 + b
+    
+
+def wavenumber(energy):
+    """Returns the relativistic wave number (k-value)."""
+
+    fsc_inv = 1.0/fine_structure
+    return np.sqrt((energy + fsc_inv**2)**2 - fsc_inv**4)*fine_structure
 
 
 def match_matrix_elements_to_same_final_photoelectron_energy(XUV_energy, M_abs, M_emi, steps_per_IR_photon):

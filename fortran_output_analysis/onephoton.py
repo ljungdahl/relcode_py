@@ -90,7 +90,7 @@ class OnePhoton:
 
         return total_cs
 
-    def get_matrix_element_for_channel(self, hole_kappa, final_kappa):
+    def get_matrix_element_with_short_range_phase_for_channel(self, hole_kappa, final_kappa):
         """Returns the value of the matrix element after one photon as amp*[e^(i*phase_of_F), e^(i*phase_of_G)]."""
         channel = self.channels[hole_kappa]
         final_state = channel.final_states[final_kappa]
@@ -284,7 +284,7 @@ def get_integrated_one_photon_cross_section(hole_kappa, M1, M2, abs_emi_or_cross
         assert all(np.abs(np.imag(values)) < threshold), "The integrated cross section had a non-zero imaginary part when it shouldn't. Check the input matrix elements or change the threshold for the allowed size of the imaginary part"
         integrated_cross_section = np.real(integrated_cross_section)
 
-    label = f"$\\sigma_0^{{{abs_emi_or_cross}}}$ from $\\kappa_0=${hole_kappa}"
+    label = f"$I_0^{{{abs_emi_or_cross}}}$ from $\\kappa_0=${hole_kappa}"
 
     return integrated_cross_section, label
 
