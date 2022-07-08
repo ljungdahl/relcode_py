@@ -227,8 +227,7 @@ class TwoPhotons:
 
     def get_coupled_matrix_element(self, hole_kappa, abs_or_emi, final_kappa):
         """Computes the value of the specified coupled matrix element.
-        This function also adds in the non-matrix element phases from the fortran program since that is
-        hard to do after coupling."""
+        This function also adds in the non-matrix element phases from the fortran program"""
         if abs_or_emi == "abs":
             fortranM = self.matrix_elements_abs[hole_kappa]
         elif abs_or_emi == "emi":
@@ -240,30 +239,37 @@ class TwoPhotons:
         #the row length at that column.
         random_col = fortranM.ionisation_paths[next(iter(fortranM.ionisation_paths.keys()))].column_index
         energy_size = len(fortranM.raw_data_real[:,random_col])
-        coupled_matrix_element = np.zeros(energy_size,dtype='complex128')
+
+        #Initialize the output array       3 different values for K: 0, 1 and 2
+        coupled_matrix_element = np.zeros((3, energy_size),dtype='complex128')
 
         #Get the data from the correct phase file
         phase_data = self._raw_short_range_phase(abs_or_emi, hole_kappa)
 
-        for K in [0,2]:
-            #Loop through all the ionisation paths
-            for (loop_hole_kappa, intermediate_kappa,loop_final_kappa) in fortranM.ionisation_paths.keys():
-                #Only use those that match the requested initial and final state
-                if loop_hole_kappa == hole_kappa and loop_final_kappa == final_kappa:
-                    # Get j values
-                    hole_j = j_from_kappa(hole_kappa)
-                    intermediate_j = j_from_kappa(intermediate_kappa)
-                    final_j = j_from_kappa(final_kappa)
-
-                    # Get the column index of the raw fortran output file that contains the requested ionisation path
-                    col_index = fortranM.ionisation_paths[(hole_kappa,intermediate_kappa,final_kappa)].column_index
-
-                    #Add in the short range phase from the fortran program
-                    matrix_element = fortranM.raw_data_real[:,col_index] + 1j*fortranM.raw_data_imag[:,col_index]
-                    matrix_element *= np.exp(1j*phase_data[:,col_index])
-                    coupled_matrix_element += phase(hole_j + final_j + K)*(2*K+1)*float(wigner_3j(1,1,K,0,0,0))*matrix_element*float(wigner_6j(1,1,K,hole_j,final_j,intermediate_j))
         
-        return coupled_matrix_element
+        #Loop through all the ionisation paths
+        for (loop_hole_kappa, intermediate_kappa,loop_final_kappa) in fortranM.ionisation_paths.keys():
+            #Only use those that match the requested initial and final state
+            if loop_hole_kappa == hole_kappa and loop_final_kappa == final_kappa:
+                # Get j values
+                hole_j = j_from_kappa(hole_kappa)
+                intermediate_j = j_from_kappa(intermediate_kappa)
+                final_j = j_from_kappa(final_kappa)
+
+                # Get the column index of the raw fortran output file that contains the requested ionisation path
+                col_index = fortranM.ionisation_paths[(hole_kappa,intermediate_kappa,final_kappa)].column_index
+
+                #Compute the value of the matrix element
+                matrix_element = fortranM.raw_data_real[:,col_index] + 1j*fortranM.raw_data_imag[:,col_index]
+                
+                #Add in the short range phase from the fortran program
+                matrix_element *= np.exp(1j*phase_data[:,col_index])
+                
+                for K in [0, 2]:
+                    #Store it in the output matrix
+                    coupled_matrix_element[K] += phase(hole_j + final_j + K)*(2*K+1)*float(wigner_3j(1,1,K,0,0,0))*matrix_element*float(wigner_6j(1,1,K,hole_j,final_j,intermediate_j))
+        
+        return [coupled_matrix_element[0], coupled_matrix_element[1], coupled_matrix_element[2]]
 
     def _raw_short_range_phase(self, abs_or_emi, hole_kappa):
         """Returns the short range phase for the given channel.
@@ -307,31 +313,42 @@ def final_kappas(hole_kappa, only_reachable=True):
         return [sig*(mag-2), -sig*(mag-1), sig*mag, -sig*(mag+1), sig*(mag+2)]
 
 
-def get_integrated_two_photon_cross_section(hole_kappa, M1, M2, abs_emi_or_cross, path=os.path.dirname(os.path.abspath(__file__)) + os.path.sep + "asymmetry_coeffs", threshold=1e-9):
-    """This function returns the integrated cross section for a photoelectron that has absorbed two photons"""
+def get_integrated_two_photon_cross_section(hole_kappa, M1, M2, abs_emi_or_cross, path=os.path.join(os.path.dirname(os.path.abspath(__file__)),"formula_coefficients","two_photons","integrated_intensity"), threshold=1e-9):
+    """This function returns the integrated signal intensity for a photoelectron that has absorbed two photons.
+    The input (M1 and M2) are 5 element lists where each element is a 3 by energy_grid_points numpy array.
+    These numbers come from there being 5 'possible' final kappa values for each initial kappa, and three possible
+    values of K."""
     
     if abs_emi_or_cross != "abs" and abs_emi_or_cross != "emi" and abs_emi_or_cross != "cross":
         raise ValueError(f"abs_emi_or_cross can only be 'abs', 'emi', or 'cross', not {abs_emi_or_cross}")
 
-    if len(M1[0]) != len(M2[0]):
-        raise ValueError("the length of the input matrix elements must be the same")
+    if np.shape(M1[0]) != np.shape(M2[0]):
+        raise ValueError("the shape of the input matrix elements must be the same")
 
-    length = len(M1[0])
+    length = np.shape(M1[0])[1]
 
     if path[-1] is not os.path.sep:
         path = path + os.path.sep
 
     try:
-        with open(path + f"integrated_cross_{hole_kappa}.txt","r") as coeffs_file:
+        with open(path + f"integrated_intensity_{hole_kappa}.txt","r") as coeffs_file:
             coeffs_file_contents = coeffs_file.readlines()
     except OSError as e:
         raise NotImplementedError("the given initial kappa is not yet implemented, or the file containing the coefficients could not be found")
 
-    coeffs = exported_mathematica_tensor_to_python_list(coeffs_file_contents[4])
+    coeffs = exported_mathematica_tensor_to_python_list(coeffs_file_contents[2])
 
     integrated_cross_section = np.zeros(length, dtype="complex128")
-    for i in range(5):
-        integrated_cross_section += coeffs[i]*M1[i]*np.conj(M2[i])
+    for kappa_i in range(5):
+        for K in range(3):
+            integrated_cross_section += coeffs[kappa_i][K]*M1[kappa_i][K]*np.conj(M2[kappa_i][K])
+
+    #for kappa_i in range(5):
+    #    print(f"Saving {hole_kappa=} {abs_emi_or_cross} to {kappa_i}")
+    #    np.savetxt(f"m_elem_emi_kappa_{kappa_i}.txt", sum([coeffs[kappa_i][K]*M1[kappa_i][K] for K in [2]]))
+    #    np.savetxt(f"m_elem_abs_kappa_{kappa_i}.txt", sum([coeffs[kappa_i][K]*M2[kappa_i][K] for K in [2]]))
+    #    np.savetxt(f"m_elem_kappa_{kappa_i}.dat",sum([coeffs[kappa_i][K]*M1[kappa_i][K]*np.conj(M2[kappa_i][K]) for K in range(3)]))
+    #exit()
 
     if abs_emi_or_cross == "cross":
         abs_emi_or_cross = "complex"
@@ -341,34 +358,36 @@ def get_integrated_two_photon_cross_section(hole_kappa, M1, M2, abs_emi_or_cross
         assert all(np.abs(np.imag(values)) < threshold), "The integrated cross section had a non-zero imaginary part when it shouldn't. Check the input matrix elements or change the threshold for the allowed size of the imaginary part"
         integrated_cross_section = np.real(integrated_cross_section)
 
-    label = f"$\\sigma_0^{{{abs_emi_or_cross}}}$ from $\\kappa_0=${hole_kappa}"
+    label = f"$I_0^{{{abs_emi_or_cross}}}$ from $\\kappa_0=${hole_kappa}"
 
     return integrated_cross_section, label
 
 
-def get_two_photon_asymmetry_parameter(n, hole_kappa, M1, M2, abs_emi_or_cross, half_of_cross_terms=False, path=os.path.dirname(os.path.abspath(__file__)) + os.path.sep + "asymmetry_coeffs", threshold=1e-10):
+def get_two_photon_asymmetry_parameter(n, hole_kappa, M1, M2, abs_emi_or_cross, path=os.path.join(os.path.dirname(os.path.abspath(__file__)),"formula_coefficients","two_photons","asymmetry_coeffs"), threshold=1e-10):
     """This function returns the value of the
     n:th asymmetry parameter for a state defined by hole_kappa.
     M1 and M2 contain the matrix elements and other phases of the wave function organized according to their final kappa liek so:
     m = |hole_kappa|
     s = sign(hole_kappa)
-    MX = [s(m-2), -s(m-1), sm, -s(m+1), s(m+2)]
+    MX = [s(m-2), -s(m-1), sm, -s(m+1), s(m+2)],
+        where each element is [K=0, K=1, K=2],
+            where each element is an array of the matrix element M_{hole_kappa, K} for each energy.
     The full signal looks something like S = M_abs M_abs^* + M_emi M_emi^* + M_abs M_emi^* + M_emi M_abs^*
     Each term in this sum contains two matrix elements, these are the inputs labeled M1 and M2 in this function.
-    This function computes the contribution to the asymmetry parameter from either the diagonal terms or the corss terms.
-    So if you want to compute the asymmetry parameter for the cross terms you would put M1 = M_abs and M2 = M_emi.
-    If you want to use only half the cross term (e.g. you want complex parameters for delay calculations) set half_of_cross_terms=True.
+    So if you want to compute the asymmetry parameter for the first cross term you would input M_abs in M1 and M_emi in M2.
     If you want to use some other values for the coefficients used in the calculation than the default,
     set path = "path/to/folder/containing/coefficient/files".
-    If the asymmetry parameter has an imaginary part larger than the input threshold when half_of_cross_term == False,
+    If the asymmetry parameter has an imaginary part larger than the input threshold when abs_emi_or_cross == "cross",
     this will trigger an assertion error. This threshold can be modified with the threshold input"""
 
     if abs_emi_or_cross != "abs" and abs_emi_or_cross != "emi" and abs_emi_or_cross != "cross":
         raise ValueError(f"abs_emi_or_cross can only be 'abs', 'emi' or 'cross' not {abs_emi_or_cross}")
 
-    if len(M1[0]) != len(M2[0]):
+    if np.shape(M1[0]) != np.shape(M2[0]):
         raise ValueError("the matrix elements contain a different number of points")
     
+    energy_size = len(M1[0][1])
+
     #If the path to the coefficient files does not end in a path separator, add it.
     if path[-1] is not os.path.sep:
         path = path + os.path.sep
@@ -381,48 +400,53 @@ def get_two_photon_asymmetry_parameter(n, hole_kappa, M1, M2, abs_emi_or_cross, 
         print(e)
         raise NotImplementedError("the given combination of initial kappa and n is not yet implemented, or the file containing the coefficients could not be found")
 
-    #Read in the n and hole_kappa values found in the file.
-    read_n, read_hole_kappa = exported_mathematica_tensor_to_python_list(coeffs_file_contents[1])
-    #If they do not match the ones given to the function, something has gone wrong.
-    if read_n != n or read_hole_kappa != hole_kappa:
-        raise ValueError("the n or hole_kappa in the coefficients file was not the same as those given to the function")
+    #Read in the coefficients in front of all the different combinations of matrix elements in the numerator.
+    numerator_coeffs = np.array(exported_mathematica_tensor_to_python_list(coeffs_file_contents[3]))
 
     #Read in the coefficients in front of the absolute values in the denominator.
-    denominator_coeffs = exported_mathematica_tensor_to_python_list(coeffs_file_contents[3])
+    denominator_coeffs = np.array(exported_mathematica_tensor_to_python_list(coeffs_file_contents[4]))
 
-    #Read in the coefficients in front of all the different combinations of matrix elements in the numerator.
-    numerator_coeffs = np.array(exported_mathematica_tensor_to_python_list(coeffs_file_contents[5]))
-
-    numerator = np.zeros(len(M1[0]), dtype="complex128")
-    denominator = np.zeros(len(M1[0]), dtype="complex128")
-    for i in range(5):
-        #compute the 'integrated cross section' denominator.
-        #This is not necessarily the integrated cross section as various numerical
-        #factors could have canceled in the Mathematica computation.
-        denominator += denominator_coeffs[i]*M1[i]*np.conj(M2[i])
-
-        for j in range(i,5):
-            #Multiply each combination of matrix elements with its coefficient.
-            if i == j:
-                #If it's a diagonal term we multiply the coefficient with the magnitue of the matrix element
-                numerator += numerator_coeffs[i,j]*M1[i]*np.conj(M2[i])
-            else:
-                #otherwise we multiply with the cross term between the two matrix elements
-                if not half_of_cross_terms:
-                    numerator += numerator_coeffs[i,j]*2*np.real(M1[i]*np.conj(M2[j]))
-                else:
-                    #unless the caller requested that the conjugate part of the cross term should be ignored
-                    numerator += numerator_coeffs[i,j]*M1[i]*np.conj(M2[j])
+    numerator = np.zeros(energy_size, dtype="complex128")
+    denominator = np.zeros(energy_size, dtype="complex128")
+    for kappa_1 in range(5):
+        for K_1 in range(3):
+            #compute the integrated intensity denominator.
+            denominator += denominator_coeffs[kappa_1, K_1]*M1[kappa_1][K_1]*np.conj(M2[kappa_1][K_1])
+            for kappa_2 in range(5):
+                for K_2 in range(3):
+                    #Multiply each combination of matrix elements with its coefficient.
+                    numerator += numerator_coeffs[kappa_1, kappa_2, K_1, K_2]*M1[kappa_1][K_1]*np.conj(M2[kappa_2][K_2])
+                    #Remaining combos due to loops
+                    #numerator += numerator_coeffs[kappa_2, kappa_1, K_1, K_2]*M1[kappa_2][K_1]*np.conj(M2[kappa_1][K_2])
+                    #numerator += numerator_coeffs[kappa_1, kappa_2, K_2, K_1]*M1[kappa_1][K_2]*np.conj(M2[kappa_2][K_1])
+                    #numerator += numerator_coeffs[kappa_2, kappa_1, K_2, K_1]*M1[kappa_2][K_2]*np.conj(M2[kappa_1][K_1])
+                    #If M1 = M2 = M this is instead
+                    #numerator += numerator_coeffs[kappa_1, kappa_2, K_1, K_2]*M[kappa_1][K_1]*np.conj(M[kappa_2][K_2])
+                    #numerator += numerator_coeffs[kappa_2, kappa_1, K_1, K_2]*M[kappa_2][K_1]*np.conj(M[kappa_1][K_2])
+                    #numerator += numerator_coeffs[kappa_1, kappa_2, K_2, K_1]*M[kappa_1][K_2]*np.conj(M[kappa_2][K_1])
+                    #numerator += numerator_coeffs[kappa_2, kappa_1, K_2, K_1]*M[kappa_2][K_2]*np.conj(M[kappa_1][K_1])
+                    
+                    #if kappa_1 == kappa_2 and K_1 == K_2:
+                        #If it's a diagonal term we multiply the coefficient with the magnitue of the matrix element
+                    #    numerator += numerator_coeffs[kappa_1, kappa_1, K_1, K_1]*M1[kappa_1][K_1]*np.conj(M2[kappa_1][K_1])
+                    #else:
+                        #otherwise we multiply with the cross term between the two matrix elements
+                        #if not half_of_cross_terms:
+                        #    numerator += numerator_coeffs[kappa_1, kappa_2, K_1, K_2]*2*np.real(M1[kappa_1][K_1]*np.conj(M2[kappa_2][K_2]))
+                        #else:
+                        #    #unless the caller requested that the conjugate part of the cross term should be ignored
+                        #    numerator += numerator_coeffs[kappa_1, kappa_2, K_1, K_2]*M1[kappa_1][K_1]*np.conj(M2[kappa_2][K_2])
 
     parameter = numerator/denominator
-    if not half_of_cross_terms:
+    #if not half_of_cross_terms:
+    if abs_emi_or_cross != "cross":
         # When looking at the asymmetry parameter from the diagonal part
         # or the full cross part, the result is a real number
         values = parameter[~np.isnan(parameter)] #Filter out the nans first, as they mess up boolean expressions (nan is not itself).
         assert all(np.abs(np.imag(values)) < threshold), "The asymmetry parameter had a non-zero imaginary part when it shouldn't. Check the input matrix elements or change the threshold for the allowed size of the imaginary part"
         parameter = np.real(parameter)
         
-    if half_of_cross_terms:
+    if abs_emi_or_cross == "cross":
         abs_emi_or_cross = "complex"
     label = f"$\\beta_{n}^{{{abs_emi_or_cross}}}$"
 
@@ -492,7 +516,7 @@ def parse_matrix_element_raw_data_from_fortran_output_file(file,
         line = line.split(")(")  # split by parentheses
         line[0] = line[0].replace("(", "")  # remove stray parenthesis from first element.
         line[-1] = line[-1].replace(")\n", "")  # remove crap from last element
-        # print(line)
+        #print(line)
 
         np_index = 0
         for real_imag_pair in line:

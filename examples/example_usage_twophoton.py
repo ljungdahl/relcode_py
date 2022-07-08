@@ -19,7 +19,7 @@ from fortran_output_analysis.common_utility import kappa_from_l_and_j
 # Defining paths to the Fortran output data:
 #
 
-data_dir = "/home/jsorngard/Mirrors/atomlx04/Repo/relcode_examples/argon_example/"
+data_dir = "/home/jsorngard/Mirrors/atomlx04/Repo/relcode_examples/argon_example/full/"
 twophoton_data_dir = data_dir+"second_photon/"
 
 path_abs = twophoton_data_dir + "m_elements_abs_-2_2.dat"

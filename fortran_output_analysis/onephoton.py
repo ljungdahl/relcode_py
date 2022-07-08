@@ -90,7 +90,7 @@ class OnePhoton:
 
         return total_cs
 
-    def get_matrix_element_with_short_range_phase_for_channel(self, hole_kappa, final_kappa):
+    def get_matrix_element_with_phase_for_channel(self, hole_kappa, final_kappa):
         """Returns the value of the matrix element after one photon as amp*[e^(i*phase_of_F), e^(i*phase_of_G)]."""
         channel = self.channels[hole_kappa]
         final_state = channel.final_states[final_kappa]
@@ -250,7 +250,7 @@ class ChannelsOld:
 
         return tot_cs
 
-def get_integrated_one_photon_cross_section(hole_kappa, M1, M2, abs_emi_or_cross, path=os.path.dirname(os.path.abspath(__file__)) + os.path.sep + "asymmetry_coeffs", threshold=1e-10):
+def get_integrated_one_photon_cross_section(hole_kappa, M1, M2, abs_emi_or_cross, path=os.path.join(os.path.dirname(os.path.abspath(__file__)), "formula_coefficients","one_photon","integrated_intensity"), threshold=1e-10):
     """This function returns the value of the integrated cross section for a photoelectron that has absorbed one photon"""
     
     if abs_emi_or_cross != "abs" and abs_emi_or_cross != "emi" and abs_emi_or_cross != "cross":
@@ -265,16 +265,21 @@ def get_integrated_one_photon_cross_section(hole_kappa, M1, M2, abs_emi_or_cross
         path = path + os.path.sep
 
     try:
-        with open(path + f"integrated_cross_{hole_kappa}.txt","r") as coeffs_file:
+        with open(path + f"integrated_intensity_{hole_kappa}.txt","r") as coeffs_file:
             coeffs_file_contents = coeffs_file.readlines()
     except OSError as e:
         raise NotImplementedError("the given initial kappa is not yet implemented, or the file containing the coefficients could not be found")
 
-    coeffs = exported_mathematica_tensor_to_python_list(coeffs_file_contents[7])
+    coeffs = exported_mathematica_tensor_to_python_list(coeffs_file_contents[2])
 
     integrated_cross_section = np.zeros(length, dtype="complex128")
     for i in range(3):
         integrated_cross_section += coeffs[i]*M1[i]*np.conj(M2[i])
+
+    #for i in range(3):
+    #    np.savetxt(f"m_elem_1ph_gt_kappa_{i}.txt", M1[i])
+    #    np.savetxt(f"m_elem_1ph_lt_kappa_{i}.txt", M2[i])
+    #exit()
 
     if abs_emi_or_cross == "cross":
         abs_emi_or_cross = "complex"
@@ -289,7 +294,7 @@ def get_integrated_one_photon_cross_section(hole_kappa, M1, M2, abs_emi_or_cross
     return integrated_cross_section, label
 
 
-def get_one_photon_asymmetry_parameter(hole_kappa, M1, M2, abs_emi_or_cross, half_of_cross_terms=False,path=os.path.dirname(os.path.abspath(__file__)) + os.path.sep + "asymmetry_coeffs", threshold=1e-10):
+def get_one_photon_asymmetry_parameter(hole_kappa, M1, M2, abs_emi_or_cross, path=os.path.join(os.path.dirname(os.path.abspath(__file__)), "formula_coefficients", "one_photon", "asymmetry_coeffs"), threshold=1e-10):
     """This function returns the value of the asymmetry parameter for a state defined by hole_kappa in the one photon case.
     M1 and M2 contains the matrix elements and other phases of the wave function organized according to their final kappa like so:
     m = |hole_kappa|
@@ -297,9 +302,9 @@ def get_one_photon_asymmetry_parameter(hole_kappa, M1, M2, abs_emi_or_cross, hal
     M = [s(m-1), -sm, s(m+1)]
     The formula for the asymmetry parameter has the form beta_2 = coeff(k1,k1)*M1(k1)*M2(k1)^* + coeff(k1,k2)*M1(k1)*M2(k2)^*
     + coeff(k1,k3)*M1(k1)*M2(k3)^* + coeff(k2,k1)*M1(k2)*M2(k1)^* + ... / (coeff(k1)M1(k1)M2(k2)^* + coeff(k2)M1(k2)M2(k2)^* + coeff(k3)M1(k3)M2(k3)^*)
-    If you only want to include the first occurence of each of the cross terms set half_of_cross_terms to True.
     The two different input matrix elements correspond to the one photon matrix elements at different energies,
     for example two absorption and emission branches of a RABBIT experiment.
+    If you want to calculate the parameters for only the absorption path, simply pass in Ma in both M1 and M2.
     If you want to use some other values for the coefficients used in the calculation than the default,
     set path = "path/to/folder/containing/coefficient/files".
     If the asymmetry parameter has an imaginary part larger than the input threshold when half_of_cross_term == False,
@@ -325,39 +330,36 @@ def get_one_photon_asymmetry_parameter(hole_kappa, M1, M2, abs_emi_or_cross, hal
         print(e)
         raise NotImplementedError("the formula for that initial kappa is not yet implemented, or the file containing the coefficients could not be found")
 
-    #Read in the n and hole_kappa values found in the file.
-    read_n, read_hole_kappa = exported_mathematica_tensor_to_python_list(coeffs_file_contents[1])
-    #If they do not match the ones given to the function, something has gone wrong.
-    if read_n != 2 or read_hole_kappa != hole_kappa:
-        raise ValueError("the hole_kappa in the coefficients file was not the same as that given to the function")
+    #Read in the coefficients in front of all the different combinations of matrix elements in the numerator.
+    numerator_coeffs = np.array(exported_mathematica_tensor_to_python_list(coeffs_file_contents[3]))
 
     #Read in the coefficients in front of the absolute values in the denominator.
-    denominator_coeffs = exported_mathematica_tensor_to_python_list(coeffs_file_contents[8])
-
-    #Read in the coefficients in front of all the different combinations of matrix elements in the numerator.
-    numerator_coeffs = np.array(exported_mathematica_tensor_to_python_list(coeffs_file_contents[10]))
+    denominator_coeffs = exported_mathematica_tensor_to_python_list(coeffs_file_contents[4])
 
     numerator = np.zeros(data_size, dtype="complex128")
     denominator = np.zeros(data_size, dtype="complex128")
     for i in range(3):
         denominator += denominator_coeffs[i]*M1[i]*np.conj(M2[i])#np.abs(M[i])**2
-        for j in range(i, 3):
-            if not half_of_cross_terms:
-                numerator += numerator_coeffs[i,j]*2*np.real(M1[i]*np.conj(M2[j]))
-            else:
-                numerator += numerator_coeffs[i,j]*M1[i]*np.conj(M2[j])
+        #for j in range(i, 3):
+        for j in range(3):
+            #if not half_of_cross_terms:
+            #    numerator += numerator_coeffs[i,j]*2*np.real(M1[i]*np.conj(M2[j]))
+            #else:
+            #    numerator += numerator_coeffs[i,j]*M1[i]*np.conj(M2[j])
+            numerator += numerator_coeffs[i,j]*M1[i]*np.conj(M2[j])
 
     parameter = numerator/denominator
 
-    if not half_of_cross_terms:
+    if abs_emi_or_cross != "cross":
         # When looking at the asymmetry parameter from the diagonal part
         # or the full cross part, the result is a real number
         values = parameter[~np.isnan(parameter)] #Filter out the nans first, as they mess up boolean expressions (nan is not itself).
         assert all(np.abs(np.imag(values)) < threshold), "The asymmetry parameter had a non-zero imaginary part when it shouldn't. Check the input matrix elements or change the threshold for the allowed size of the imaginary part"
         parameter = np.real(parameter)
 
-    if half_of_cross_terms:
+    if abs_emi_or_cross == "cross":
         abs_emi_or_cross = "complex"
+
     label = f"$\\beta_2^{{{abs_emi_or_cross}}}$"
 
     return parameter, label

@@ -216,12 +216,11 @@ def coulomb_phase(kappa, energy, Z, use_relativistic_wavenumber=True):
     x = Z/k
     b = np.angle(gamma(l + 1 - 1j*x))
     
-    return -l*np.pi/2 + b
+    return b - l*np.pi/2
     
 
 def wavenumber(energy):
     """Returns the relativistic wave number (k-value)."""
-
     fsc_inv = 1.0/fine_structure
     return np.sqrt((energy + fsc_inv**2)**2 - fsc_inv**4)*fine_structure
 

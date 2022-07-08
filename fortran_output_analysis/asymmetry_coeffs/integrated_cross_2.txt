@@ -1,8 +1,0 @@
-#The coefficients in the expression for the integrated cross section.
-#{s(m-2),-s(m-1),sm,-s(m+1),s(m+2)}
-#The ones in the asymmetry_parameter files are not correct if what you want
-#is ONLY the integrated cross section, as factors can cancel with the numerator
-{0.0, 0.2, 1.2, 0.2, 0.2}
-#In the one photon case it is sorted as
-#{s(m-1), -sm, s(m+1)}
-{0.33333333333333333333,0.33333333333333333333,0.33333333333333333333}
