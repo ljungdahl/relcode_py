@@ -225,7 +225,7 @@ class TwoPhotons:
             return retval, name
     
 
-    def get_coupled_matrix_element(self, hole_kappa, abs_or_emi, final_kappa):
+    def get_coupled_matrix_element(self, hole_kappa, abs_or_emi, final_kappa, verbose=False):
         """Computes the value of the specified coupled matrix element.
         This function also adds in the non-matrix element phases from the fortran program"""
         if abs_or_emi == "abs":
@@ -246,9 +246,10 @@ class TwoPhotons:
         #Get the data from the correct phase file
         phase_data = self._raw_short_range_phase(abs_or_emi, hole_kappa)
 
-        
         #Loop through all the ionisation paths
-        for (loop_hole_kappa, intermediate_kappa,loop_final_kappa) in fortranM.ionisation_paths.keys():
+        for kappa_tuple in fortranM.ionisation_paths.keys():
+            loop_hole_kappa, intermediate_kappa, loop_final_kappa = kappa_tuple
+
             #Only use those that match the requested initial and final state
             if loop_hole_kappa == hole_kappa and loop_final_kappa == final_kappa:
                 # Get j values
@@ -257,17 +258,26 @@ class TwoPhotons:
                 final_j = j_from_kappa(final_kappa)
 
                 # Get the column index of the raw fortran output file that contains the requested ionisation path
-                col_index = fortranM.ionisation_paths[(hole_kappa,intermediate_kappa,final_kappa)].column_index
+                col_index = fortranM.ionisation_paths[kappa_tuple].column_index
 
                 #Compute the value of the matrix element
                 matrix_element = fortranM.raw_data_real[:,col_index] + 1j*fortranM.raw_data_imag[:,col_index]
                 
                 #Add in the short range phase from the fortran program
                 matrix_element *= np.exp(1j*phase_data[:,col_index])
-                
+
                 for K in [0, 2]:
-                    #Store it in the output matrix
-                    coupled_matrix_element[K] += phase(hole_j + final_j + K)*(2*K+1)*float(wigner_3j(1,1,K,0,0,0))*matrix_element*float(wigner_6j(1,1,K,hole_j,final_j,intermediate_j))
+                    if verbose:
+                        print(f"{K=}, {hole_j=}, {intermediate_j=}, {final_j=} gives ", (2*K+1)*float(wigner_3j(1,1,K,0,0,0))*float(wigner_6j(1,1,K,hole_j,final_j,intermediate_j)))
+                        #print(f"{K=}, {hole_j=}, {intermediate_j=}, {final_j=} gives ", phase(hole_j + final_j + K)*(2*K+1)*float(wigner_3j(1,1,K,0,0,0))*float(wigner_6j(1,1,K,hole_j,final_j,intermediate_j)))
+                        print(f"The last point of this matrix element is {matrix_element[-1]}\n")
+                    
+                    #Multiply by the prefactor and store it in the output matrix
+                    coupled_matrix_element[K] += (2*K+1)*float(wigner_3j(1,1,K,0,0,0))*matrix_element*float(wigner_6j(1,1,K,hole_j,final_j,intermediate_j))
+                    #coupled_matrix_element[K] += phase(hole_j + final_j + K)*(2*K+1)*float(wigner_3j(1,1,K,0,0,0))*matrix_element*float(wigner_6j(1,1,K,hole_j,final_j,intermediate_j))
+        
+        if verbose:
+            print(f"in the end the 100th point of the coupled matrix element for {final_kappa=} ends up as",coupled_matrix_element[:,100])
         
         return [coupled_matrix_element[0], coupled_matrix_element[1], coupled_matrix_element[2]]
 
@@ -291,6 +301,10 @@ class TwoPhotons:
         phase_path = os.path.sep.join(M.path.split(os.path.sep)[:-1]) + os.path.sep + phase_file_name
         
         raw_phase_data = np.loadtxt(phase_path)
+
+        #Filter out all columns that are all zeros to make column index match with organization of matrix element data
+        zero_col_indexes = np.argwhere(np.all(raw_phase_data[...,:] == 0, axis = 0))
+        raw_phase_data = np.delete(raw_phase_data, zero_col_indexes, axis=1)
 
         return raw_phase_data
 
@@ -342,12 +356,13 @@ def get_integrated_two_photon_cross_section(hole_kappa, M1, M2, abs_emi_or_cross
     for kappa_i in range(5):
         for K in range(3):
             integrated_cross_section += coeffs[kappa_i][K]*M1[kappa_i][K]*np.conj(M2[kappa_i][K])
+        #integrated_cross_section += (coeffs[kappa_i][0] + coeffs[kappa_i][2])*(M1[kappa_i][0] + M1[kappa_i][2])*np.conj(M2[kappa_i][0]+M2[kappa_i][2])
 
     #for kappa_i in range(5):
     #    print(f"Saving {hole_kappa=} {abs_emi_or_cross} to {kappa_i}")
-    #    np.savetxt(f"m_elem_emi_kappa_{kappa_i}.txt", sum([coeffs[kappa_i][K]*M1[kappa_i][K] for K in [2]]))
-    #    np.savetxt(f"m_elem_abs_kappa_{kappa_i}.txt", sum([coeffs[kappa_i][K]*M2[kappa_i][K] for K in [2]]))
-    #    np.savetxt(f"m_elem_kappa_{kappa_i}.dat",sum([coeffs[kappa_i][K]*M1[kappa_i][K]*np.conj(M2[kappa_i][K]) for K in range(3)]))
+    #    np.savetxt(f"m_elem_emi_kappa_{kappa_i}.txt", sum([coeffs[kappa_i][K]*M1[kappa_i][K] for K in range(3)]))
+    #    np.savetxt(f"m_elem_abs_kappa_{kappa_i}.txt", sum([coeffs[kappa_i][K]*M2[kappa_i][K] for K in range(3)]))
+    #    np.savetxt(f"m_elem_kappa_{kappa_i}.txt",sum([coeffs[kappa_i][K]*M1[kappa_i][K]*np.conj(M2[kappa_i][K]) for K in range(3)]))
     #exit()
 
     if abs_emi_or_cross == "cross":
