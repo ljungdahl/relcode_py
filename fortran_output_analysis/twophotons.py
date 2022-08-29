@@ -308,6 +308,12 @@ class TwoPhotons:
 
         return raw_phase_data
 
+def match_matrix_elements_to_same_final_photoelectron_energy(XUV_energy, M_abs, M_emi, steps_per_IR_photon):
+    """Shifts the input energy and matrix element arrays so that the same index in all of them
+    corresponds to the same final photoelectron energy"""
+
+    return XUV_energy[steps_per_IR_photon:-steps_per_IR_photon], M_abs[:-2*steps_per_IR_photon], M_emi[2*steps_per_IR_photon:]
+
 def final_kappas(hole_kappa, only_reachable=True):
     """Returns a list of the kappa quantum numbers that are reachable with
     two photons from the state with the given initial kappa
