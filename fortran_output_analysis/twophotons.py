@@ -365,10 +365,11 @@ def get_integrated_two_photon_cross_section(hole_kappa, M1, M2, abs_emi_or_cross
         #integrated_cross_section += (coeffs[kappa_i][0] + coeffs[kappa_i][2])*(M1[kappa_i][0] + M1[kappa_i][2])*np.conj(M2[kappa_i][0]+M2[kappa_i][2])
 
     #for kappa_i in range(5):
-    #    print(f"Saving {hole_kappa=} {abs_emi_or_cross} to {kappa_i}")
-    #    np.savetxt(f"m_elem_emi_kappa_{kappa_i}.txt", sum([coeffs[kappa_i][K]*M1[kappa_i][K] for K in range(3)]))
-    #    np.savetxt(f"m_elem_abs_kappa_{kappa_i}.txt", sum([coeffs[kappa_i][K]*M2[kappa_i][K] for K in range(3)]))
-    #    np.savetxt(f"m_elem_kappa_{kappa_i}.txt",sum([coeffs[kappa_i][K]*M1[kappa_i][K]*np.conj(M2[kappa_i][K]) for K in range(3)]))
+    #    for K in range(3):
+    #        print(f"Saving {hole_kappa=} {abs_emi_or_cross} to {kappa_i}")
+    #        np.savetxt(f"m_elem_emi_kappa_{kappa_i}_K_{K}.txt", coeffs[kappa_i][K]*M1[kappa_i][K])
+    #        np.savetxt(f"m_elem_abs_kappa_{kappa_i}_K_{K}.txt", coeffs[kappa_i][K]*M2[kappa_i][K])
+    #        np.savetxt(f"m_elem_abs_conj_emi_kappa_{kappa_i}_K_{K}.txt",coeffs[kappa_i][K]*M1[kappa_i][K]*np.conj(M2[kappa_i][K]))
     #exit()
 
     if abs_emi_or_cross == "cross":
@@ -530,9 +531,10 @@ def parse_matrix_element_raw_data_from_fortran_output_file(file,
     real_dynamic = []
     imag_dynamic = []
 
-    # Read rest of lines with actual matrix elements
-    for line in islice(file, 1, None, breakpoint_step):  # Skip first line and get every breakpoint_step:th
+    breakpoint_index = 2 # Use the 3rd breakpoint
 
+    # Read rest of lines with actual matrix elements
+    for line in islice(file, breakpoint_index, None, breakpoint_step):
         line = line.replace(" ", "")  # remove whitespace
         line = line.split(")(")  # split by parentheses
         line[0] = line[0].replace("(", "")  # remove stray parenthesis from first element.
