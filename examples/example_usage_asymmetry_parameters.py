@@ -13,7 +13,7 @@ relcode_py_repo_path = "/home/jsorngard/Mirrors/atomlx04/Repo/relcode_py"
 
 sys.path.append(relcode_py_repo_path)
 
-from fortran_output_analysis.twophotons import TwoPhotons
+from fortran_output_analysis.twophotons import TwoPhotons, final_kappas, get_two_photon_asymmetry_parameter
 from fortran_output_analysis.common_utility import kappa_from_l_and_j, coulomb_phase
 
 #
@@ -49,7 +49,7 @@ two_photons.add_matrix_elements(path_abs, "abs", hole_kappa, 3)  # absorption
 two_photons.add_matrix_elements(path_emi, "emi", hole_kappa, 3)  # emission
 
 # We can calculate the possible final kappas with this function
-final_kappas = two_photons.final_kappas(hole_kappa, only_reachable = False)
+final_kappas = final_kappas(hole_kappa, only_reachable = False)
 
 # Then we can retrieve the value of the coupled matrix elements like so
 M_abs_p3half = [two_photons.get_coupled_matrix_element(hole_kappa, "abs", kf) for kf in final_kappas]
@@ -64,8 +64,8 @@ M_abs_p3half *= coul_phase
 M_emi_p3half *= coul_phase
 
 # Now we can compute the asymmetry parameters!
-b2_p3half_abs, b2_p3half_abs_label = two_photons.get_asymmetry_parameter(2, hole_kappa, M_abs_p3half, M_abs_p3half, "abs")
-b4_p3half_abs, b4_p3half_abs_label = two_photons.get_asymmetry_parameter(4, hole_kappa, M_abs_p3half, M_abs_p3half, "abs")
+b2_p3half_abs, b2_p3half_abs_label = get_two_photon_asymmetry_parameter(2, hole_kappa, M_abs_p3half, M_abs_p3half, "abs")
+b4_p3half_abs, b4_p3half_abs_label = get_two_photon_asymmetry_parameter(4, hole_kappa, M_abs_p3half, M_abs_p3half, "abs")
 
 # And show them
 plt.plot(omega,b2_p3half_abs,label = b2_p3half_abs_label)
